@@ -9,14 +9,14 @@ const Packages = () => {
 
   const init = () => {
     packageService
-      .getAll()
+      .getAvailables()
       .then((response) => {
-        console.log("Mostrando listado de todos los paquetes.", response.data);
+        console.log("Mostrando listado de paquetes disponibles.", response.data);
         setPackages(response.data);
       })
       .catch((error) => {
         console.log(
-          "Se ha producido un error al intentar mostrar listado de todos los paquetes.",
+          "Se ha producido un error al intentar mostrar listado de paquetes disponibles.",
           error
         );
       });

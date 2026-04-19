@@ -11,13 +11,16 @@ import ListItemText from '@mui/material/ListItemText';
 import InboxIcon from '@mui/icons-material/MoveToInbox';
 import MailIcon from '@mui/icons-material/Mail';
 import { useNavigate } from 'react-router-dom';
+import { useKeycloak } from "@react-keycloak/web";
+
+
 
 export default function TemporaryDrawer() {
   const [open, setOpen] = React.useState(false);
   const navigate = useNavigate();
 
   const menuItems = [
-  { text: 'Pasajes', path: '/pasajes' },
+  { text: 'Pasajes', path: '/packages' },
   { text: 'Hola', path: '/hola' },
   { text: 'Send Chao', path: '/chao' },
   { text: 'Oli', path: '/oli' }
@@ -25,6 +28,12 @@ export default function TemporaryDrawer() {
 
   const toggleDrawer = (newOpen) => () => {
     setOpen(newOpen);
+  };
+
+  const { keycloak } = useKeycloak();
+
+  const handleLogout = () => {
+    keycloak.logout();
   };
 
   const DrawerList = (
@@ -51,6 +60,15 @@ export default function TemporaryDrawer() {
           </ListItem>
         ))}
       </List>
+      <Divider />
+      <div>
+      <Button color="error" variant="contained" onClick={handleLogout}>
+        Cerrar sesión
+      </Button>
+      <Button onClick={() => console.log(keycloak.token)}>
+        Ver token
+      </Button>
+      </div>
     </Box>
   );
 
