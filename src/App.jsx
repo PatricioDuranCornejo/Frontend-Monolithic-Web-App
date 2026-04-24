@@ -41,7 +41,7 @@ function App() {
       <div className="container">
         <Navbar/>
         <Routes>
-          <Route path="/home" element={<Home/>} />
+          <Route path="" element={<Home/>} />
           <Route path="*" element={<NotFound/>} />
           <Route path="/packages"
           element={<PrivateRoute element={<Packages />} rolesAllowed={["USER","ADMIN"]} />}

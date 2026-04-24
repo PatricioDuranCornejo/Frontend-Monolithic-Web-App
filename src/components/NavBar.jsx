@@ -1,83 +1,104 @@
-import * as React from 'react';
-import Box from '@mui/material/Box';
-import Drawer from '@mui/material/Drawer';
-import Button from '@mui/material/Button';
-import List from '@mui/material/List';
-import Divider from '@mui/material/Divider';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import InboxIcon from '@mui/icons-material/MoveToInbox';
-import MailIcon from '@mui/icons-material/Mail';
-import { useNavigate } from 'react-router-dom';
+import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import { useKeycloak } from "@react-keycloak/web";
+import Box from "@mui/material/Box";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import IconButton from "@mui/material/IconButton";
+import PersonIcon from "@mui/icons-material/Person";
+import LogoutIcon from "@mui/icons-material/Logout";
 
-
-
-export default function TemporaryDrawer() {
-  const [open, setOpen] = React.useState(false);
+export default function Navbar() {
   const navigate = useNavigate();
-
-  const menuItems = [
-  { text: 'Pasajes', path: '/packages' },
-  { text: 'Hola', path: '/hola' },
-  { text: 'Send Chao', path: '/chao' },
-  { text: 'Oli', path: '/oli' }
-];
-
-  const toggleDrawer = (newOpen) => () => {
-    setOpen(newOpen);
-  };
-
   const { keycloak } = useKeycloak();
 
+  const [anchorEl, setAnchorEl] = React.useState(null);
+  const open = Boolean(anchorEl);
+
+  const menuItems = [
+    { text: "Pasajes", path: "/packages" },
+    { text: "Home", path: "/" },
+    { text: "Hola", path: "/hola" },
+  ];
+  
+  // Open menu
+  const handleClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  // Close menu
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  // Logout
   const handleLogout = () => {
     keycloak.logout();
   };
 
-  const DrawerList = (
-    <Box sx={{ width: 250 }} role="presentation" onClick={toggleDrawer(false)}>
-      <List>
-  {menuItems.map((item) => (
-    <ListItem key={item.text} disablePadding>
-      <ListItemButton onClick={() => navigate(item.path)}>
-        <ListItemText primary={item.text} />
-      </ListItemButton>
-    </ListItem>
-  ))}
-</List>
-      <Divider />
-      <List>
-        {['All mail', 'Trash', 'Spam'].map((text, index) => (
-          <ListItem key={text} disablePadding>
-            <ListItemButton>
-              <ListItemIcon>
-                {index % 2 === 0 ? <InboxIcon /> : <MailIcon />}
-              </ListItemIcon>
-              <ListItemText primary={text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-      <Divider />
-      <div>
-      <Button color="error" variant="contained" onClick={handleLogout}>
-        Cerrar sesión
-      </Button>
-      <Button onClick={() => console.log(keycloak.token)}>
-        Ver token
-      </Button>
-      </div>
-    </Box>
-  );
-
   return (
-    <div>
-      <Button onClick={toggleDrawer(true)}>Open drawer</Button>
-      <Drawer open={open} onClose={toggleDrawer(false)}>
-        {DrawerList}
-      </Drawer>
-    </div>
+    <Box
+      sx={{
+        position: "fixed",
+        top: 16,
+        right: 16,
+        zIndex: 1300,
+      }}
+    >
+      {/* User icon */}
+      <IconButton onClick={handleClick}>
+        <PersonIcon sx={{ color: "white" }} />
+      </IconButton>
+
+      {/* Dropdown menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "right",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+      >
+        {/* Navigation options */}
+        {menuItems.map((item) => (
+          <MenuItem
+            key={item.text}
+            onClick={() => {
+              navigate(item.path);
+              handleClose();
+            }}
+          >
+            {item.text}
+          </MenuItem>
+        ))}
+
+        {/* Separator */}
+        <MenuItem disabled>──────────</MenuItem>
+
+        {/* Print token */}
+        <MenuItem
+          onClick={() => {
+            console.log(keycloak.token);
+            handleClose();
+          }}
+        >
+          Ver token
+        </MenuItem>
+
+        {/* Logout */}
+        <MenuItem onClick={() => {
+              navigate("/");
+              handleLogout(); 
+            }} sx={{ color: "red" }}>
+          <LogoutIcon sx={{ mr: 1 }} />
+          Cerrar sesión
+        </MenuItem>
+      </Menu>
+    </Box>
   );
 }

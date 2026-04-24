@@ -1,4 +1,21 @@
+import userService from "../services/user.service";
+import { useEffect } from "react";
+import { useKeycloak } from "@react-keycloak/web";
+
 const Home = () => {
+
+  const { keycloak } = useKeycloak();
+
+  useEffect(() => {
+    if (keycloak?.idTokenParsed) {
+      userService.create(
+        keycloak.idTokenParsed.sub,
+        keycloak.idTokenParsed.name,
+        keycloak.idTokenParsed.email
+      );
+    }
+  }, [keycloak]);
+
   return (
     <div>
       <h1>SisGR: Sistema de Gestión Remuneraciones</h1>
