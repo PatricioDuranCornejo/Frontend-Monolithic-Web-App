@@ -4,6 +4,7 @@ import Home from './components/Home';
 import Navbar from './components/NavBar';
 import NotFound from './components/NotFound';
 import Packages from './components/Packages';
+import CompleteProfile from './components/CompleteProfile';
 import { useKeycloak } from "@react-keycloak/web";
 
 function App() {
@@ -46,6 +47,7 @@ function App() {
           <Route path="/packages"
           element={<PrivateRoute element={<Packages />} rolesAllowed={["USER","ADMIN"]} />}
           />
+          <Route path="/completeprofile" element={<CompleteProfile />} rolesAllowed={["USER","ADMIN"]} />
         </Routes>
       </div>
 
