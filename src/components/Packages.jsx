@@ -26,48 +26,57 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
 import ImageIcon from "@mui/icons-material/Image";
+import { useLocation } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 const Packages = () => {
   const [packages, setPackages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const filters = location.state || {};
+  const [searchParams] = useSearchParams();
 
-  const init = () => {
-    packageService
-      .getAll()
-      .then((response) => {
-        console.log("Mostrando listado de paquetes disponibles.", response.data);
-        setPackages(response.data);
-      })
-      .catch((error) => {
-        console.log(
-          "Se ha producido un error al intentar mostrar listado de paquetes disponibles.",
-          error
-        );
-      });
-  };
 
   useEffect(() => {
-    init();
-  }, []);
+    const filters = {};
+
+    const destiny = searchParams.get("destiny");
+    const experienceType = searchParams.get("experienceType");
+    const minPrice = searchParams.get("minPrice");
+    const maxPrice = searchParams.get("maxPrice");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+
+    if (destiny) filters.destiny = destiny;
+    if (experienceType) filters.experienceType = experienceType;
+    if (minPrice) filters.minPrice = Number(minPrice);
+    if (maxPrice) filters.maxPrice = Number(maxPrice);
+    if (startDate) filters.startDate = startDate;
+    if (endDate) filters.endDate = endDate;
+
+    packageService.getByFilters(filters)
+      .then((response) => setPackages(response.data))
+      .catch(console.error);
+  }, [searchParams]);
 
   const formatDate = (dateString) => {
-  if (!dateString) return "-";
-  
-  const date = new Date(dateString);
-  // Validate date before formatting
-  if (isNaN(date.getTime())) return "-";
+    if (!dateString) return "-";
 
-  return new Intl.DateTimeFormat("es-CL", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23", // 24-hr format
-  }).format(date).replace(",", ""); // Delete comma for cleaner output
-};
+    const date = new Date(dateString);
+    // Validate date before formatting
+    if (isNaN(date.getTime())) return "-";
+
+    return new Intl.DateTimeFormat("es-CL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23", // 24-hr format
+    }).format(date).replace(",", ""); // Delete comma for cleaner output
+  };
 
   const formatPrice = (price) => {
     if (price === null || price === undefined) return "-";
@@ -244,11 +253,11 @@ const Packages = () => {
                         </Typography>
                       </Stack>
 
-                      <Chip
-                        label={translateState(pkg.packageState)}
-                        color={getStateColor(pkg.packageState)}
-                        size="small"
-                      />
+                      <Typography variant="body2">
+                        <strong>Tipo:</strong> {pkg.packageExperienceType}
+                      </Typography>
+
+
                     </Box>
 
                     {/* CENTER SECTION: DATES */}
@@ -310,7 +319,7 @@ const Packages = () => {
                         gap: 1,
                       }}
                     >
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction="row" spacing={1.2} alignItems="center">
                         <PaidIcon fontSize="small" color="success" />
                         <Typography variant="body2" color="success">
                           <strong>Precio:</strong> {formatPrice(pkg.packagePrice)}
@@ -330,6 +339,13 @@ const Packages = () => {
                       >
                         Comprar
                       </Button>
+
+                      <Chip
+                        label={translateState(pkg.packageState)}
+                        color={getStateColor(pkg.packageState)}
+                        size="small"
+                      />
+
                     </Box>
                   </Box>
 

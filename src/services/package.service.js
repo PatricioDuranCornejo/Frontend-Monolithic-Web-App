@@ -8,4 +8,16 @@ const getAvailables = () => {
     return httpClient.get('/api/packages/available');
 }
 
-export default { getAll, getAvailables };
+const getDestinies = () => {
+    return httpClient.get('/api/packages/destinies')
+}
+
+const getExperienceTypes = () => {
+    return httpClient.get('/api/packages/exptypes')
+}
+
+const getByFilters = (filters) => {
+  return httpClient.get("/api/packages/filters", { params: filters });
+};
+
+export default { getAll, getAvailables, getDestinies, getByFilters, getExperienceTypes };

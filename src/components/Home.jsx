@@ -1,8 +1,12 @@
 import userService from "../services/user.service";
+import packageService from "../services/package.service";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useKeycloak } from "@react-keycloak/web";
 import {
+  Autocomplete,
   Box,
+  Card,
   CircularProgress,
   Dialog,
   DialogTitle,
@@ -14,9 +18,15 @@ import {
   Alert,
   Typography,
 } from "@mui/material";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import dayjs from "dayjs";
+
 
 const Home = () => {
   const { keycloak } = useKeycloak();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [openProfileModal, setOpenProfileModal] = useState(false);
@@ -30,6 +40,68 @@ const Home = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Consts for Package Destiny filter
+  const [destinies, setDestinies] = useState([]);
+  const [selectedDestiny, setSelectedDestiny] = useState(null);
+
+  // Consts for Dates select
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+
+  // Consts for Prices select
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+
+  // Consts for Package Exp Types filter
+  // Consts for Package Destiny filter
+  const [expTypes, setExpTypes] = useState([]);
+  const [selectedExpType, setSelectedExpType] = useState(null);
+
+const handleSearch = () => {
+  const params = new URLSearchParams();
+
+  if (selectedDestiny) params.set("destiny", selectedDestiny);
+  if (selectedExpType) params.set("experienceType", selectedExpType);
+  if (startDate) params.set("startDate", startDate.format("YYYY-MM-DDTHH:mm:ss"));
+  if (endDate) params.set("endDate", endDate.format("YYYY-MM-DDTHH:mm:ss"));
+  if (minPrice !== "" && minPrice !== null) params.set("minPrice", minPrice);
+  if (maxPrice !== "" && maxPrice !== null) params.set("maxPrice", maxPrice);
+
+  navigate(`/packages?${params.toString()}`);
+};
+
+  // Load Destinies from DB
+  useEffect(() => {
+    const loadDestinies = async () => {
+      try {
+        const response = await packageService.getDestinies();
+        setDestinies(response.data);
+        console.log(response.data)
+      } catch (error) {
+        console.error("Error al obtener destinos:", error);
+      }
+    };
+
+    loadDestinies();
+  }, []);
+
+  // Load Experiences Type from DB
+  useEffect(() => {
+    const loadExpTypes = async () => {
+      try {
+        const response = await packageService.getExperienceTypes();
+        setExpTypes(response.data);
+        console.log(response.data)
+      } catch (error) {
+        console.error("Error al obtener tipos de experiencias:", error);
+      }
+    };
+
+    loadExpTypes();
+  }, []);
+
+  // Craete User Entity on DB
+  // And complete profile data after keycloak register
   useEffect(() => {
     const initUser = async () => {
       try {
@@ -74,6 +146,7 @@ const Home = () => {
     e.preventDefault();
     setError("");
 
+    //Verifications
     if (!form.rut.trim()) {
       setError("El RUT es obligatorio.");
       return;
@@ -93,7 +166,6 @@ const Home = () => {
       );
       return;
     }
-
     if (!form.country.trim()) {
       setError("El país es obligatorio.");
       return;
@@ -129,7 +201,7 @@ const Home = () => {
       console.log(err);
       setError(
         err?.response?.data?.message ||
-          "Ocurrió un error al guardar los datos."
+        "Ocurrió un error al guardar los datos."
       );
     } finally {
       setSaving(false);
@@ -153,18 +225,6 @@ const Home = () => {
 
   return (
     <>
-      <div>
-        <h1>SisGR: Sistema de Gestión Remuneraciones</h1>
-        <p>
-          SisGR es una aplicación web para gestionar planillas de sueldos de
-          empleados. Esta aplicación ha sido desarrollada usando tecnologías como{" "}
-          <a href="https://spring.io/projects/spring-boot">Spring Boot</a> (para
-          el backend), <a href="https://reactjs.org/">React</a> (para el Frontend)
-          y <a href="https://www.mysql.com/products/community/">MySQL</a> (para la
-          base de datos).
-        </p>
-      </div>
-
       <Dialog open={openProfileModal} fullWidth maxWidth="sm">
         <DialogTitle color="primary">Completa tu perfil</DialogTitle>
 
@@ -219,6 +279,176 @@ const Home = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Typography
+        variant="h2"
+        fontWeight="bold"
+        gutterBottom
+        sx={{ textAlign: "center" }}
+      >
+        BIENVENIDO🫡
+      </Typography>
+
+      <Typography
+        variant="h4"
+        sx={{ mb: 4, opacity: 0.8, textAlign: "center" }}
+      >
+        Busqueda de paquetes
+      </Typography>
+
+
+      <Stack spacing={1.3}>
+        <Card
+          elevation={4}
+          sx={{
+            width: "100%",
+            maxWidth: "1400px",
+            borderRadius: 4,
+            overflow: "hidden",
+          }}
+        >
+
+          {/* Main content grid */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "1fr",
+                md: "190px 200px 200px 150px 210px",
+              },
+              gap: 2,
+              alignItems: "center",
+              width: "100%",
+              p: 2,
+            }}
+          >
+            {/* Select Destiny */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Autocomplete
+                options={destinies}
+                value={selectedDestiny}
+                onChange={(event, newValue) => setSelectedDestiny(newValue)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Destino" placeholder="Escribe para buscar" />
+                )}
+                fullWidth
+              />
+            </Box>
+
+            {/* Select Start Date */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  label="Fecha de inicio"
+                  value={startDate}
+                  onChange={(newValue) => setStartDate(newValue)}
+                  slotProps={{
+                    textField: { fullWidth: true }
+                  }}
+                />
+              </LocalizationProvider>
+            </Box>
+
+            {/* Select End Date */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  label="Fecha de término"
+                  value={endDate}
+                  onChange={(newValue) => setEndDate(newValue)}
+                  slotProps={{
+                    textField: { fullWidth: true }
+                  }}
+                />
+              </LocalizationProvider>
+            </Box>
+
+            {/* Select Min. and Max. Prices */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Stack spacing={1.3}>
+                <TextField
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                  type="number"
+                  label="Precio mínimo"
+                  inputProps={{ min: 0 }}
+                />
+
+                <TextField
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  type="number"
+                  label="Precio máximo"
+                />
+              </Stack>
+            </Box>
+
+            {/* Select Experience Type */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Autocomplete
+                options={expTypes}
+                value={selectedExpType}
+                onChange={(event, newValue) => setSelectedExpType(newValue)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Tipo de experiencia" placeholder="Escribe para buscar" />
+                )}
+                fullWidth
+              />
+            </Box>
+          </Box>
+        </Card>
+
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "right",
+            alignItems: "center",
+          }}
+        >
+          <Button
+            variant="contained"
+            size="large"
+            onClick={handleSearch}
+            sx={{
+              borderRadius: 3,
+              minWidth: 170,
+              boxShadow: 2,
+            }}
+          >
+            Buscar
+          </Button>
+        </Box>
+      </Stack>
     </>
   );
 };
