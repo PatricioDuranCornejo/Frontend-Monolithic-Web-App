@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import packageService from "../services/package.service";
+import bookingService from "../services/booking.service";
+import userService from "../services/user.service";
+import { useKeycloak } from "@react-keycloak/web";
 
 import {
   Box,
@@ -8,7 +11,12 @@ import {
   Card,
   Chip,
   Container,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Stack,
+  TextField,
   Typography,
   Modal,
   Accordion,
@@ -30,6 +38,7 @@ import { useLocation } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 
 const Packages = () => {
+  const { keycloak } = useKeycloak();
   const [packages, setPackages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -37,6 +46,12 @@ const Packages = () => {
   const location = useLocation();
   const filters = location.state || {};
   const [searchParams] = useSearchParams();
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [openBookingModal, setOpenBookingModal] = useState(false);
+  const [passengers, setPassengers] = useState("");
+  const [totalPrice, setTotalPrice] = useState("");
+  const [extraPassengers, setExtraPassengers] = useState([]);
+  const [bookingError, setBookingError] = useState("");
 
 
   useEffect(() => {
@@ -119,11 +134,124 @@ const Packages = () => {
     setExpanded(isExpanded ? panel : false);
   };
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Validation to create extra fields for passengers when booking
+  const handlePassengersChange = (value) => {
+    if (value === "") {
+      setPassengers("");
+      setTotalPrice(0);
+      setExtraPassengers([]);
+      return;
+    }
+
+    if (!/^[1-9]\d*$/.test(value)) return;
+
+    const numericValue = Number(value);
+
+    if (numericValue > selectedPackage.packageStockAvailable) return;
+
+    setPassengers(value);
+    setTotalPrice(numericValue * selectedPackage.packagePrice);
+
+    const extrasCount = Math.max(numericValue - 1, 0);
+
+    setExtraPassengers((prev) => {
+      const next = Array.from({ length: extrasCount }, (_, i) => {
+        return prev[i] || { name: "", rut: "" };
+      });
+      return next;
+    });
+  };
+
+  // Handle a especific passenger field change
+  const handleExtraPassengerChange = (index, field, value) => {
+    setExtraPassengers((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, [field]: value } : p))
+    );
+  };
+
+  // Validate RUT and name fields for extra passengers
+  const isValidRut = (rut) => /^\d{7,8}-[0-9kK]$/.test(rut.trim());
+  const isValidName = (name) => /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(name.trim());
+
   // Generate placeholder image URL (using picsum.photos for demo)
   const getPlaceholderImage = (packageId) => {
     // Using a consistent seed based on packageId for the same image per package
     return `https://picsum.photos/seed/${packageId}/800/600`;
   };
+
+  const handleBooking = (pkg) => {
+    setSelectedPackage(pkg);
+    console.log(`Reservar paquete con ID: ${pkg.packageId}`);
+    setOpenBookingModal(true);
+  }
+
+  const createBooking = async () => {
+    setBookingError("");
+
+    if (!passengers || Number(passengers) < 1) {
+      setBookingError("Debes ingresar al menos 1 pasajero.");
+      return;
+    }
+
+    for (let i = 0; i < extraPassengers.length; i++) {
+      const passenger = extraPassengers[i];
+
+      if (!passenger.name.trim()) {
+        setBookingError(`El nombre del pasajero ${i + 2} es obligatorio.`);
+        return;
+      }
+
+      if (!isValidName(passenger.name)) {
+        setBookingError(`El nombre del pasajero ${i + 2} solo puede contener letras.`);
+        return;
+      }
+
+      if (!passenger.rut.trim()) {
+        setBookingError(`El RUT del pasajero ${i + 2} es obligatorio.`);
+        return;
+      }
+
+      if (!isValidRut(passenger.rut)) {
+        setBookingError(`El RUT del pasajero ${i + 2} debe tener el formato 12345678-9.`);
+        return;
+      }
+    }
+
+    const passengersString = extraPassengers
+      .map((p) => `${p.name.trim()}; ${p.rut.trim()}`)
+      .join(". ");
+
+    console.log("Pasajeros extra:", passengersString);
+
+    const user = await userService.getByKeycloakId(keycloak.idTokenParsed.sub);
+
+    const data = {
+      passengers: Number(passengers),
+      extraPassengers: passengersString,
+      bookingTotalPrice: totalPrice,
+      bookingState: "Awaiting for payment",
+      pack: selectedPackage,
+      user: user.data,
+    };
+
+    try {
+      await bookingService.create(data);
+      console.log("Reserva creada exitosamente.");
+      const confirmBooking = window.alert("Reserva creada exitosamente.");
+      window.location.reload();
+
+    } catch (error) {
+      console.error("Error al crear la reserva:", error);
+    }
+
+    setOpenBookingModal(false);
+
+  }
 
   return (
     <Container
@@ -330,7 +458,7 @@ const Packages = () => {
                         variant="contained"
                         size="large"
                         startIcon={<ShoppingCartIcon />}
-                        onClick={() => navigate(`/packages/${pkg.packageId}`)}
+                        onClick={() => handleBooking(pkg)}
                         sx={{
                           borderRadius: 3,
                           minWidth: 170,
@@ -444,6 +572,115 @@ const Packages = () => {
           </Box>
         </Fade>
       </Modal>
+
+      <Dialog open={openBookingModal} onClose={() => setOpenBookingModal(false)} fullWidth maxWidth="sm">
+        <DialogTitle color="success">Reservar paquete</DialogTitle>
+
+        <DialogContent>
+          {selectedPackage && bookingError && (
+            <Typography color="error" variant="body2">
+              {bookingError}
+            </Typography>
+          )}
+          {selectedPackage && (
+            <Stack spacing={1}>
+              <Typography variant="body1">
+                <strong>Paquete seleccionado:</strong> {selectedPackage.packageName}
+              </Typography>
+
+              <Typography variant="body2">
+                <strong>Destino:</strong> {selectedPackage.packageDestiny}
+              </Typography>
+
+              <Typography variant="body2">
+                <strong>Precio por persona:</strong> {formatPrice(selectedPackage.packagePrice)}
+              </Typography>
+
+              <Typography variant="body2">
+                <strong>Cupos disponibles:</strong> {selectedPackage.packageStockAvailable}
+              </Typography>
+
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: {
+                    xs: "1fr",
+                    md: "300px 100px",
+                  },
+                  gap: 2,
+                  width: "40%",
+                  p: 2,
+                }}
+              >
+                <Typography variant="body2">
+                  <strong>Seleccione la cantidad de pasajeros: </strong>
+                </Typography>
+
+                <TextField
+                  variant="standard"
+                  value={passengers}
+                  onChange={(e) => handlePassengersChange(e.target.value)}
+                  type="text"
+                  inputProps={{
+                    inputMode: "numeric",
+                    pattern: "[0-9]*",
+                  }}
+                />
+              </Box>
+
+              {extraPassengers.length > 0 && (
+                <Stack spacing={2} sx={{ mt: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    Datos de pasajeros extra
+                  </Typography>
+
+                  {extraPassengers.map((passenger, index) => (
+                    <Box
+                      key={index}
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                        gap: 2,
+                      }}
+                    >
+                      <TextField
+                        label={`Nombre pasajero ${index + 2}`}
+                        value={passenger.name}
+                        onChange={(e) =>
+                          handleExtraPassengerChange(index, "name", e.target.value)
+                        }
+                        fullWidth
+                      />
+
+                      <TextField
+                        label={`RUT pasajero ${index + 2}`}
+                        value={passenger.rut}
+                        onChange={(e) =>
+                          handleExtraPassengerChange(index, "rut", e.target.value)
+                        }
+                        fullWidth
+                      />
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+
+              <Typography variant="body2">
+                <strong>Precio total:</strong> {formatPrice(totalPrice)}
+              </Typography>
+            </Stack>
+          )}
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={createBooking} color="success">
+            Confirmar reserva
+          </Button>
+          <Button onClick={() => setOpenBookingModal(false)} color="error">
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

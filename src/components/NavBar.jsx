@@ -16,11 +16,11 @@ export default function Navbar() {
   const open = Boolean(anchorEl);
 
   const menuItems = [
-    { text: "Pasajes", path: "/packages" },
     { text: "Home", path: "/" },
-    { text: "Hola", path: "/hola" },
+    { text: "Pasajes", path: "/packages" },
+    { text: "Mis reservas", path: "/bookings" },
   ];
-  
+
   // Open menu
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -47,7 +47,13 @@ export default function Navbar() {
     >
       {/* User icon */}
       <IconButton onClick={handleClick}>
-        <PersonIcon sx={{ color: "white" }} />
+        <PersonIcon sx={{
+          color: "black",
+          borderRadius: 3,
+          boxShadow: 2,
+          width: 30,
+          height: 30,
+        }} />
       </IconButton>
 
       {/* Dropdown menu */}
@@ -92,9 +98,9 @@ export default function Navbar() {
 
         {/* Logout */}
         <MenuItem onClick={() => {
-              navigate("/");
-              handleLogout(); 
-            }} sx={{ color: "red" }}>
+          navigate("/");
+          handleLogout();
+        }} sx={{ color: "red" }}>
           <LogoutIcon sx={{ mr: 1 }} />
           Cerrar sesión
         </MenuItem>
