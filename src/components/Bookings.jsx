@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import bookingService from "../services/booking.service";
 import packageService from "../services/package.service";
+import paymentService from "../services/payment.service";
+import { useKeycloak } from "@react-keycloak/web";
 
 import {
     Container,
@@ -12,6 +14,16 @@ import {
     Button,
     IconButton,
     Modal,
+    DialogContent,
+    DialogTitle,
+    Dialog,
+    DialogActions,
+    InputLabel,
+    Select,
+    MenuItem,
+    FormControl,
+    TextField,
+    Alert,
 } from "@mui/material";
 
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
@@ -23,14 +35,28 @@ import MenuSharpIcon from '@mui/icons-material/MenuSharp';
 import { WindowSharp } from "@mui/icons-material";
 
 const Bookings = () => {
+    const { keycloak } = useKeycloak();
     const [bookings, setBookings] = useState([]);
     const [packages, setPackages] = useState([]);
     const [openPackageDetailsModal, setOpenPackageDetailsModal] = useState(false);
     const [openPassengersDetailsModal, setOpenPassengersDetailsModal] = useState(false);
     const [openDiscountDetailsModal, setOpenDiscountDetailsModal] = useState(false);
     const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
+    const [openPaymentDetailsModal, setOpenPaymentDetailsModal] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [extraPassengers, setExtraPassengers] = useState([]);
+    const [payMethod, setPayMethod] = useState("");
+    const [payment, setPayment] = useState(null);
+    const [error, setError] = useState("");
+    const [paymentError, setPaymentError] = useState("");
+    const [form, setForm] = useState({
+        cardNumber: "",
+        expirationDate: "",
+        cvv: "",
+        cardHolder: "",
+    });
+
+
 
     const formatDate = (dateString) => {
         if (!dateString) return "-";
@@ -76,7 +102,7 @@ const Bookings = () => {
 
     const getBookings = async () => {
         try {
-            const response = await bookingService.getAll();
+            const response = await bookingService.getBookingsByKeycloakId(keycloak.tokenParsed.sub);
             setBookings(response.data);
         } catch (error) {
             console.error("Error fetching bookings:", error);
@@ -130,6 +156,117 @@ const Bookings = () => {
                 console.error("Error canceling booking:", error);
             }
         }
+    };
+
+    const handlePayMethodChange = (event) => {
+        setPayMethod(event.target.value);
+    };
+
+    const handleCardNumberChange = (e) => {
+        const rawValue = e.target.value.replace(/\D/g, "").slice(0, 16);
+        const formattedValue = rawValue.replace(/(.{4})/g, "$1 ").trim();
+        setForm((prev) => ({ ...prev, cardNumber: formattedValue }));
+    };
+
+    const handleExpirationDateChange = (e) => {
+        const digits = e.target.value.replace(/\D/g, "").slice(0, 4); // MMYY
+
+        const month = digits.slice(0, 2);
+        const year = digits.slice(2, 4);
+
+        // Validar mes solo cuando ya tenga 2 dígitos
+        if (month.length === 2) {
+            const monthNumber = Number(month);
+            if (monthNumber < 1 || monthNumber > 12) return;
+        }
+
+        let formattedValue = month;
+
+        if (year.length > 0) {
+            formattedValue = `${month}/${year}`;
+        }
+
+        setForm((prev) => ({ ...prev, expirationDate: formattedValue }));
+    };
+
+    const handleCvvChange = (e) => {
+        const value = e.target.value.replace(/\D/g, "").slice(0, 3);
+        setForm((prev) => ({ ...prev, cvv: value }));
+    };
+
+    const handleCardHolderChange = (e) => {
+        const value = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "");
+        setForm((prev) => ({ ...prev, cardHolder: value }));
+    };
+
+    const handleSubmit = async () => {
+
+        if (!payMethod) {
+            window.alert("Por favor, selecciona un método de pago.");
+            return;
+        }
+
+        if (!form.cardNumber || !form.expirationDate || !form.cvv || !form.cardHolder) {
+            setError("Por favor, completa todos los campos del formulario de pago.");
+            return;
+        }
+
+        if (!/^\d{4}\ \d{4}\ \d{4}\ \d{4}$/.test(form.cardNumber.trim())) {
+            setError("El número de tarjeta debe contener 16 dígitos.");
+            return;
+        }
+
+        if (!/^\d{2}\/\d{2}$/.test(form.expirationDate)) {
+            setError("La fecha de expiración debe tener el formato MM/AA.");
+            return;
+        }
+
+        if (!/^\d{3}$/.test(form.cvv)) {
+            setError("El CVV solo debe contener 3 dígitos.");
+            return;
+        }
+
+        const data = {
+            paymentDate: new Date().toISOString(),
+            paymentMethod: payMethod,
+            paymentAmount: selectedBooking.bookingTotalPrice,
+            booking: selectedBooking,
+        };
+
+        if (window.confirm("¿Confirma que desea realizar el pago de esta reserva?")) {
+            try {
+                await paymentService.createPayment(data);
+                window.alert("Pago realizado con éxito.");
+                setOpenPaymentDialog(false);
+                window.location.reload();
+            } catch (error) {
+                console.error("Error processing payment:", error);
+            }
+        }
+    }
+
+    const handleBookingPaymentModal = (booking) => {
+        setOpenPaymentDialog(true);
+        setSelectedBooking(booking);
+    };
+
+    const handlePaymentDetailsModal = async (booking) => {
+        setOpenPaymentDetailsModal(true);
+        const response = await paymentService.getByBookingId(booking.bookingId);
+        setPayment(response.data);
+        console.log(payment);
+    };
+
+    const translatePaymentMethod = (method) => {
+        const value = String(method || "").toLowerCase();
+        if (value === "creditcard") return "Tarjeta de crédito";
+        return "Desconocido";
+    };
+
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setForm((prev) => ({ ...prev, [name]: value }));
     };
 
     useEffect(() => {
@@ -193,7 +330,7 @@ const Bookings = () => {
                                             display: "grid",
                                             gridTemplateColumns: {
                                                 xs: "1fr",
-                                                md: "270px 340px 210px",
+                                                md: "280px 360px 240px",
                                             },
                                             gap: 2,
                                             alignItems: "center",
@@ -316,7 +453,7 @@ const Bookings = () => {
                                                             lineHeight: 1,
                                                         }}
                                                     >
-                                                        <strong>Porcentaje de descuento: </strong>
+                                                        <strong>Porcentaje de descuento: 50%</strong>
                                                     </Typography>
 
                                                     <IconButton
@@ -372,40 +509,90 @@ const Bookings = () => {
                                             }}
                                         >
 
-                                            <Chip
-                                                label={translateState(booking.bookingState)}
-                                                color={getStateColor(booking.bookingState)}
-                                                size="small"
-                                            />
+                                            {booking.bookingState.toLowerCase() === "awaiting for payment" ? (
+                                                <>
+                                                    <Chip
+                                                        label={translateState(booking.bookingState)}
+                                                        color={getStateColor(booking.bookingState)}
+                                                        size="small"
+                                                    />
+                                                    <Button
+                                                        variant="contained"
+                                                        size="small"
+                                                        startIcon={<ShoppingCartIcon />}
+                                                        color="success"
+                                                        sx={{
+                                                            borderRadius: 3,
+                                                            minWidth: 170,
+                                                            boxShadow: 2,
+                                                        }}
+                                                        onClick={() => handleBookingPaymentModal(booking)}
+                                                    >
+                                                        Pagar
+                                                    </Button>
+                                                    <Button
+                                                        variant="contained"
+                                                        size="small"
+                                                        startIcon={<CancelSharpIcon />}
+                                                        color="error"
+                                                        sx={{
+                                                            borderRadius: 3,
+                                                            minWidth: 170,
+                                                            boxShadow: 2,
+                                                        }}
+                                                        onClick={() => handleCancelBooking(booking)}
+                                                    >
+                                                        Cancelar
+                                                    </Button>
+                                                </>
+                                            ) : booking.bookingState.toLowerCase() === "paid" ? (
+                                                <>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <Chip
+                                                            label={translateState(booking.bookingState)}
+                                                            color={getStateColor(booking.bookingState)}
+                                                        />
+                                                        <IconButton
+                                                            color="default"
+                                                            sx={{
+                                                                borderRadius: 1,
+                                                                boxShadow: 2,
+                                                                width: 30,
+                                                                height: 30,
+                                                                p: 0,
+                                                                flexShrink: 0,
+                                                            }}
+                                                            onClick={() => handlePaymentDetailsModal(booking)}
+                                                        >
+                                                            <MenuSharpIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Stack>
+                                                    <Button
+                                                        variant="contained"
+                                                        size="small"
+                                                        startIcon={<CancelSharpIcon />}
+                                                        color="error"
+                                                        sx={{
+                                                            borderRadius: 3,
+                                                            minWidth: 170,
+                                                            boxShadow: 2,
+                                                        }}
+                                                        onClick={() => handleCancelBooking(booking)}
+                                                    >
+                                                        Cancelar
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <Chip
+                                                    label={translateState(booking.bookingState)}
+                                                    color={getStateColor(booking.bookingState)}
+                                                    size="medium"
+                                                    sx={{
+                                                        fontSize: "1.4rem",
+                                                    }}
+                                                />
 
-                                            <Button
-                                                variant="contained"
-                                                size="small"
-                                                startIcon={<ShoppingCartIcon />}
-                                                color="success"
-                                                sx={{
-                                                    borderRadius: 3,
-                                                    minWidth: 170,
-                                                    boxShadow: 2,
-                                                }}
-                                            >
-                                                Pagar
-                                            </Button>
-
-                                            <Button
-                                                variant="contained"
-                                                size="small"
-                                                startIcon={<CancelSharpIcon />}
-                                                color="error"
-                                                sx={{
-                                                    borderRadius: 3,
-                                                    minWidth: 170,
-                                                    boxShadow: 2,
-                                                }}
-                                                onClick={() => handleCancelBooking(booking)}
-                                            >
-                                                Cancelar
-                                            </Button>
+                                            )}
                                         </Box>
                                     </Box>
                                 </Card>
@@ -508,6 +695,165 @@ const Bookings = () => {
                                     <Typography variant="body2">No hay pasajeros extra registrados.</Typography>
                                 )}
                             </Stack>
+                        </>
+                    )}
+                </Box>
+            </Modal>
+
+            {/* PAYMENT DIALOG */}
+            <Dialog open={openPaymentDialog} fullWidth maxWidth="sm" onClose={() => setOpenPaymentDialog(false)}>
+                <DialogTitle color="black">Realizar Pago</DialogTitle>
+                {selectedBooking && (
+                    <>
+                        <DialogContent>
+                            <Typography variant="h6" sx={{ mb: 2 }}>
+                                Resumen del pago:
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 2 }}>
+                                <strong>- Monto unitario:</strong> {formatPrice(selectedBooking.pack.packagePrice)}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 2 }}>
+                                <strong>- Cantidad de pasajeros:</strong> {selectedBooking.passengers}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 2 }}>
+                                <strong>- Monto total:</strong> {formatPrice(selectedBooking.pack.packagePrice * selectedBooking.passengers)}
+                            </Typography>
+
+                            <Typography variant="h6" sx={{ mb: 2 }}>
+                                Seleccione un método de pago:
+                            </Typography>
+                            <FormControl variant="standard" sx={{ m: 0, minWidth: 180 }}>
+                                <InputLabel id="demo-simple-select-standard-label">Método de pago</InputLabel>
+                                <Select
+                                    labelId="demo-simple-select-standard-label"
+                                    id="demo-simple-select-standard"
+                                    value={payMethod}
+                                    onChange={handlePayMethodChange}
+                                >
+                                    <MenuItem value="creditCard">Tarjeta de crédito</MenuItem>
+                                </Select>
+                            </FormControl>
+
+
+                            {payMethod && selectedBooking && (
+                                <form id="payment-form" onSubmit={handleSubmit}>
+                                    <Stack spacing={2} sx={{ mt: 1 }}>
+                                        {error && <Alert severity="error">{error}</Alert>}
+
+                                        <TextField
+                                            label="Número de tarjeta"
+                                            name="cardNumber"
+                                            value={form.cardNumber}
+                                            onChange={handleCardNumberChange}
+                                            fullWidth
+                                            required
+                                            inputProps={{ inputMode: "numeric" }}
+                                        />
+
+                                        <Stack
+                                            direction="row"
+                                            spacing={2}
+                                            sx={{
+                                                display: "grid",
+                                                gridTemplateColumns: {
+                                                    md: "300px 220px",
+                                                    xs: "1fr"
+                                                },
+                                                gap: 2,
+                                                mt: 2
+                                            }}>
+                                            <TextField
+                                                label="Fecha de expiración (MM/AA)"
+                                                name="expirationDate"
+                                                value={form.expirationDate}
+                                                onChange={handleExpirationDateChange}
+                                                fullWidth
+                                                required
+                                                type="text"
+                                                inputProps={{
+                                                    inputMode: "numeric",
+                                                    maxLength: 5,
+                                                }}
+                                            />
+                                            <TextField
+                                                label="CVV"
+                                                name="cvv"
+                                                value={form.cvv}
+                                                onChange={handleCvvChange}
+                                                fullWidth
+                                                required
+                                                inputProps={{
+                                                    inputMode: "numeric",
+                                                    maxLength: 3,
+                                                }}
+                                            />
+                                        </Stack>
+                                        <TextField
+                                            label="Titular de la tarjeta"
+                                            name="cardHolder"
+                                            value={form.cardHolder}
+                                            onChange={handleCardHolderChange}
+                                            fullWidth
+                                            required
+                                        />
+                                    </Stack>
+                                </form>
+                            )}
+                        </DialogContent>
+                    </>
+                )}
+
+                <DialogActions>
+                    <Button
+                        variant="contained"
+                        color="success"
+                        startIcon={<PaidIcon />}
+                        sx={{
+                            borderRadius: 3,
+                            minWidth: 170,
+                            boxShadow: 2,
+                        }}
+                        onClick={handleSubmit}
+                    >
+                        Pagar reserva
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* PAYMENT DETAILS MODAL */}
+            <Modal
+                open={openPaymentDetailsModal}
+                onClose={() => setOpenPaymentDetailsModal(false)}
+                aria-labelledby="modal-modal-title"
+                aria-describedby="modal-modal-description"
+            >
+                <Box
+                    sx={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        width: 400,
+                        bgcolor: "background.paper",
+                        border: "2px solid #000",
+                        boxShadow: 24,
+                        p: 4,
+                    }}
+                >
+                    {payment && (
+                        <>
+                            <Typography id="modal-modal-title" variant="h6" component="h2">
+                                <strong>Detalles del pago:</strong>
+                            </Typography>
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                                <strong>Método de pago:</strong> {translatePaymentMethod(payment.paymentMethod)}
+                            </Typography>
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                                <strong>Monto total:</strong> {formatPrice(payment.paymentAmount)}
+                            </Typography>
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                                <strong>Pago realizado el:</strong> {formatDate(payment.paymentDate)}
+                            </Typography>
                         </>
                     )}
                 </Box>

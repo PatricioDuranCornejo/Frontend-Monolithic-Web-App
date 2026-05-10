@@ -21,6 +21,7 @@ import {
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
 import dayjs from "dayjs";
 
 
@@ -57,18 +58,18 @@ const Home = () => {
   const [expTypes, setExpTypes] = useState([]);
   const [selectedExpType, setSelectedExpType] = useState(null);
 
-const handleSearch = () => {
-  const params = new URLSearchParams();
+  const handleSearch = () => {
+    const params = new URLSearchParams();
 
-  if (selectedDestiny) params.set("destiny", selectedDestiny);
-  if (selectedExpType) params.set("experienceType", selectedExpType);
-  if (startDate) params.set("startDate", startDate.format("YYYY-MM-DDTHH:mm:ss"));
-  if (endDate) params.set("endDate", endDate.format("YYYY-MM-DDTHH:mm:ss"));
-  if (minPrice !== "" && minPrice !== null) params.set("minPrice", minPrice);
-  if (maxPrice !== "" && maxPrice !== null) params.set("maxPrice", maxPrice);
+    if (selectedDestiny) params.set("destiny", selectedDestiny);
+    if (selectedExpType) params.set("experienceType", selectedExpType);
+    if (startDate) params.set("startDate", startDate.format("YYYY-MM-DDTHH:mm:ss"));
+    if (endDate) params.set("endDate", endDate.format("YYYY-MM-DDTHH:mm:ss"));
+    if (minPrice !== "" && minPrice !== null) params.set("minPrice", minPrice);
+    if (maxPrice !== "" && maxPrice !== null) params.set("maxPrice", maxPrice);
 
-  navigate(`/packages?${params.toString()}`);
-};
+    navigate(`/packages?${params.toString()}`);
+  };
 
   // Load Destinies from DB
   useEffect(() => {
@@ -280,14 +281,33 @@ const handleSearch = () => {
         </DialogActions>
       </Dialog>
 
-      <Typography
-        variant="h2"
-        fontWeight="bold"
-        gutterBottom
-        sx={{ textAlign: "center" }}
-      >
-        BIENVENIDO🫡
-      </Typography>
+      <Stack direction="row" alignItems="center" justifyContent="center" spacing={3} sx={{ mb: 2 }}>
+        <FlightTakeoffIcon
+          color="dark"
+          sx={{
+            fontSize: 100,
+            p: 0,
+            flexShrink: 0,
+          }} />
+        <Typography
+          variant="h2"
+          fontWeight="bold"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            lineHeight: 1,
+          }}
+        >
+          Bienvenido a TravelAgency
+        </Typography>
+        <FlightTakeoffIcon
+          color="black"
+          sx={{
+            fontSize: 100,
+            p: 0,
+            flexShrink: 0,
+          }} />
+      </Stack>
 
       <Typography
         variant="h4"
@@ -403,6 +423,7 @@ const handleSearch = () => {
                   onChange={(e) => setMaxPrice(e.target.value)}
                   type="number"
                   label="Precio máximo"
+                  inputProps={{ min: 0 }}
                 />
               </Stack>
             </Box>
