@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import bookingService from "../services/booking.service";
 import packageService from "../services/package.service";
 import paymentService from "../services/payment.service";
@@ -45,6 +45,7 @@ const Bookings = () => {
     const [openPaymentDetailsModal, setOpenPaymentDetailsModal] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [extraPassengers, setExtraPassengers] = useState([]);
+    const [discountsMatrix, setDiscountsMatrix] = useState([]);
     const [payMethod, setPayMethod] = useState("");
     const [payment, setPayment] = useState(null);
     const [error, setError] = useState("");
@@ -263,10 +264,90 @@ const Bookings = () => {
         return "Desconocido";
     };
 
-
     const handleChange = (e) => {
         const { name, value } = e.target;
         setForm((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleDiscountsDetailModal = async (booking) => {
+        const response = await bookingService.getDiscountsForUser(booking.passengers, keycloak.idTokenParsed.sub);
+        setDiscountsMatrix(response.data)
+        setOpenDiscountDetailsModal(true);
+        console.log(response);
+    }
+
+    const translateDiscountName = (name) => {
+        const map = {
+            "Passengers discount": "Descuento por pasajeros",
+            "Frequent user discount": "Descuento por usuario frecuente",
+            "Multiple bookings discount": "Descuento por múltiples reservas",
+            "Time limited discount": "Descuento por tiempo limitado",
+            "No discounts applicable": "No hay descuentos aplicables",
+        };
+
+        return map[name] || name || "-";
+    };
+
+    const translateDiscountType = (type) => {
+        const map = {
+            Cumulative: "Acumulativo",
+            "Non Cumulative": "No acumulativo",
+            "No discounts applicable": "No hay descuentos aplicables",
+        };
+
+        return map[type] || type || "-";
+    };
+
+    const renderDiscounts = (matrix) => {
+        if (!Array.isArray(matrix) || matrix.length === 0) {
+            return <Typography>No hay información de descuentos.</Typography>;
+        }
+
+        const lastRow = matrix[matrix.length - 1];
+
+        const noDiscounts =
+            Array.isArray(lastRow) && lastRow.length >= 2 && lastRow[1] === "No discounts applicable";
+
+        if (noDiscounts) {
+            return (
+                <Typography variant="body2">
+                    No hay descuentos aplicables.
+                </Typography>
+            );
+        }
+
+        const discounts = matrix.slice(0, -1);
+        const finalDiscountRow = lastRow;
+
+        return (
+            <Stack spacing={1}>
+                {/* DISCOUNTS LIST */}
+                {discounts.map((d, index) => (
+                    <Typography key={index} variant="body2">
+                        {index + 1}. <strong>{translateDiscountName(d[0])}</strong> —{" "}
+                        {(Number(d[1]) * 100).toFixed(0)}% ({translateDiscountType(d[2])})
+                    </Typography>
+                ))}
+
+                {/* FINAL RESULT */}
+                <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                        <strong>Descuento final:</strong>{" "}
+                        {(Number(finalDiscountRow?.[0] ?? 0) * 100).toFixed(0)}%
+                    </Typography>
+
+                    <Typography variant="body2">
+                        <strong>Tipo:</strong> {translateDiscountType(finalDiscountRow?.[1])}
+                    </Typography>
+
+                    {finalDiscountRow?.[2] && (
+                        <Typography variant="body2">
+                            <strong>Origen:</strong> {translateDiscountName(finalDiscountRow[2])}
+                        </Typography>
+                    )}
+                </Box>
+            </Stack>
+        );
     };
 
     useEffect(() => {
@@ -453,7 +534,7 @@ const Bookings = () => {
                                                             lineHeight: 1,
                                                         }}
                                                     >
-                                                        <strong>Porcentaje de descuento: 50%</strong>
+                                                        <strong>Porcentaje de descuento:</strong>&nbsp;{(booking.bookingDiscount * 100) + "%" || " 0%"}
                                                     </Typography>
 
                                                     <IconButton
@@ -466,6 +547,7 @@ const Bookings = () => {
                                                             p: 0,
                                                             flexShrink: 0,
                                                         }}
+                                                        onClick={() => handleDiscountsDetailModal(booking)}
                                                     >
                                                         <MenuSharpIcon fontSize="small" />
                                                     </IconButton>
@@ -489,7 +571,7 @@ const Bookings = () => {
                                                             lineHeight: 1,
                                                         }}
                                                     >
-                                                        <strong>Precio total:</strong> {formatPrice(booking.bookingTotalPrice)}
+                                                        <strong>Precio total:</strong>&nbsp;{formatPrice(booking.bookingTotalPrice)}
                                                     </Typography>
                                                 </Box>
                                             </Stack>
@@ -700,6 +782,41 @@ const Bookings = () => {
                 </Box>
             </Modal>
 
+            {/* DISCOUNTS DETAILS MODAL */}
+            <Modal
+                open={openDiscountDetailsModal}
+                onClose={() => setOpenDiscountDetailsModal(false)}
+                aria-labelledby="modal-modal-title"
+                aria-describedby="modal-modal-description"
+            >
+                <Box
+                    sx={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        width: 400,
+                        bgcolor: "background.paper",
+                        border: "2px solid #000",
+                        boxShadow: 24,
+                        p: 4,
+                    }}
+                >
+                    <Typography id="modal-modal-title" variant="h6" component="h2">
+                        <strong>Detalle de descuentos:</strong>
+                    </Typography>
+                    {discountsMatrix && (
+                        <>
+                            <Typography id="modal-modal-title" variant="h6" component="h2">
+                                <strong></strong>
+                            </Typography>
+                            {renderDiscounts(discountsMatrix)}
+                        </>
+                    )}
+                </Box>
+            </Modal>
+
+
             {/* PAYMENT DIALOG */}
             <Dialog open={openPaymentDialog} fullWidth maxWidth="sm" onClose={() => setOpenPaymentDialog(false)}>
                 <DialogTitle color="black">Realizar Pago</DialogTitle>
@@ -716,7 +833,10 @@ const Bookings = () => {
                                 <strong>- Cantidad de pasajeros:</strong> {selectedBooking.passengers}
                             </Typography>
                             <Typography variant="body2" sx={{ mb: 2 }}>
-                                <strong>- Monto total:</strong> {formatPrice(selectedBooking.pack.packagePrice * selectedBooking.passengers)}
+                                <strong>- Descuento aplicado:</strong> {(selectedBooking.bookingDiscount * 100) + "%" || "0%"}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 2 }}>
+                                <strong>- Monto total:</strong> {formatPrice(selectedBooking.bookingTotalPrice)}
                             </Typography>
 
                             <Typography variant="h6" sx={{ mb: 2 }}>

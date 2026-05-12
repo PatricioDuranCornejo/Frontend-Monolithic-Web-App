@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useRef } from "react";
 import packageService from "../services/package.service";
 import bookingService from "../services/booking.service";
 import userService from "../services/user.service";
@@ -52,6 +53,9 @@ const Packages = () => {
   const [totalPrice, setTotalPrice] = useState("");
   const [extraPassengers, setExtraPassengers] = useState([]);
   const [bookingError, setBookingError] = useState("");
+  const [discounts, setDiscounts] = useState([]);
+  const [finalDiscount, setFinalDiscount] = useState(0);
+  const lastDiscountRequestRef = useRef(0);
 
 
   useEffect(() => {
@@ -134,15 +138,12 @@ const Packages = () => {
     setExpanded(isExpanded ? panel : false);
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
   // Validation to create extra fields for passengers when booking
-  const handlePassengersChange = (value) => {
+  const handlePassengersChange = async (value) => {
     if (value === "") {
       setPassengers("");
+      setDiscounts([]);
+      setFinalDiscount(0);
       setTotalPrice(0);
       setExtraPassengers([]);
       return;
@@ -152,19 +153,41 @@ const Packages = () => {
 
     const numericValue = Number(value);
 
+    if (!selectedPackage) return;
     if (numericValue > selectedPackage.packageStockAvailable) return;
 
-    setPassengers(value);
-    setTotalPrice(numericValue * selectedPackage.packagePrice);
+    const requestId = ++lastDiscountRequestRef.current;
 
-    const extrasCount = Math.max(numericValue - 1, 0);
+    try {
+      const response = await bookingService.getDiscountsForUser(
+        numericValue,
+        keycloak.idTokenParsed.sub
+      );
 
-    setExtraPassengers((prev) => {
-      const next = Array.from({ length: extrasCount }, (_, i) => {
-        return prev[i] || { name: "", rut: "" };
-      });
-      return next;
-    });
+      // Ignore stale responses
+      if (requestId !== lastDiscountRequestRef.current) return;
+
+      const matrix = response.data;
+      const final = extractFinalDiscount(matrix);
+
+      setDiscounts(matrix);
+      setFinalDiscount(final);
+
+      setPassengers(value);
+      setTotalPrice(
+        numericValue * selectedPackage.packagePrice * (1 - final)
+      );
+
+      const extrasCount = Math.max(numericValue - 1, 0);
+      setExtraPassengers((prev) =>
+        Array.from({ length: extrasCount }, (_, i) => prev[i] || { name: "", rut: "" })
+      );
+    } catch (error) {
+      console.error("Error al obtener descuentos:", error);
+      setDiscounts([]);
+      setFinalDiscount(0);
+      setTotalPrice(numericValue * selectedPackage.packagePrice);
+    }
   };
 
   // Handle a especific passenger field change
@@ -184,11 +207,19 @@ const Packages = () => {
     return `https://picsum.photos/seed/${packageId}/800/600`;
   };
 
-  const handleBooking = (pkg) => {
+  const handleBooking = async (pkg) => {
     setSelectedPackage(pkg);
-    console.log(`Reservar paquete con ID: ${pkg.packageId}`);
+
+    const response = await bookingService.getDiscountsForUser(
+      1,
+      keycloak.idTokenParsed.sub
+    );
+
+    setDiscounts(response.data);
+    setFinalDiscount(extractFinalDiscount(response.data));
+
     setOpenBookingModal(true);
-  }
+  };
 
   const createBooking = async () => {
     setBookingError("");
@@ -229,15 +260,19 @@ const Packages = () => {
     console.log("Pasajeros extra:", passengersString);
 
     const user = await userService.getByKeycloakId(keycloak.idTokenParsed.sub);
+    extractFinalDiscount(discounts);
 
     const data = {
       passengers: Number(passengers),
       extraPassengers: passengersString,
       bookingTotalPrice: totalPrice,
       bookingState: "Awaiting for payment",
+      bookingDiscount: finalDiscount,
       pack: selectedPackage,
       user: user.data,
     };
+
+    console.log(data);
 
     try {
       await bookingService.create(data);
@@ -252,6 +287,98 @@ const Packages = () => {
     setOpenBookingModal(false);
 
   }
+
+  const translateDiscountName = (name) => {
+    const map = {
+      "Passengers discount": "Descuento por pasajeros",
+      "Frequent user discount": "Descuento por usuario frecuente",
+      "Multiple bookings discount": "Descuento por múltiples reservas",
+      "Time limited discount": "Descuento por tiempo limitado",
+      "No discounts applicable": "No hay descuentos aplicables",
+    };
+
+    return map[name] || name || "-";
+  };
+
+  const translateDiscountType = (type) => {
+    const map = {
+      Cumulative: "Acumulativo",
+      "Non Cumulative": "No acumulativo",
+      "No discounts applicable": "No hay descuentos aplicables",
+      "Limit Discount": "Descuento límite",
+    };
+
+    return map[type] || type || "-";
+  };
+
+  const extractFinalDiscount = (matrix) => {
+    if (!Array.isArray(matrix) || matrix.length === 0) return 0;
+
+    const lastRow = matrix[matrix.length - 1];
+
+    if (
+      Array.isArray(lastRow) &&
+      lastRow.length >= 2 &&
+      lastRow[1] === "No discounts applicable"
+    ) {
+      return 0;
+    }
+
+    const value = parseFloat(lastRow?.[0]);
+    return Number.isFinite(value) ? value : 0;
+  };
+
+  const renderDiscounts = (matrix) => {
+    if (!Array.isArray(matrix) || matrix.length === 0) {
+      return <Typography>No hay información de descuentos.</Typography>;
+    }
+
+    const lastRow = matrix[matrix.length - 1];
+
+    const noDiscounts =
+      Array.isArray(lastRow) && lastRow.length >= 2 && lastRow[1] === "No discounts applicable";
+
+    if (noDiscounts) {
+      return (
+        <Typography variant="body2">
+          No hay descuentos aplicables.
+        </Typography>
+      );
+    }
+
+    const discounts = matrix.slice(0, -1);
+    const finalDiscountRow = lastRow;
+
+    return (
+      <Stack spacing={1}>
+        {/* DISCOUNTS LIST */}
+        {discounts.map((d, index) => (
+          <Typography key={index} variant="body2">
+            {index + 1}. <strong>{translateDiscountName(d[0])}</strong> —{" "}
+            {(Number(d[1]) * 100).toFixed(0)}% ({translateDiscountType(d[2])})
+          </Typography>
+        ))}
+
+        {/* FINAL RESULT */}
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2">
+            <strong>Descuento final:</strong>{" "}
+            {(Number(finalDiscountRow?.[0] ?? 0) * 100).toFixed(0)}%
+          </Typography>
+
+          <Typography variant="body2">
+            <strong>Tipo:</strong> {translateDiscountType(finalDiscountRow?.[1])}
+          </Typography>
+
+          {finalDiscountRow?.[2] && (
+            <Typography variant="body2">
+              <strong>Origen:</strong> {translateDiscountName(finalDiscountRow[2])}
+            </Typography>
+          )}
+        </Box>
+      </Stack>
+    );
+  };
 
   return (
     <Container
@@ -600,6 +727,17 @@ const Packages = () => {
                 <strong>Cupos disponibles:</strong> {selectedPackage.packageStockAvailable}
               </Typography>
 
+              <Typography variant="subtitle1" fontWeight="bold">
+                * Descuentos:
+              </Typography>
+
+              <Box>
+                {renderDiscounts(discounts)}
+              </Box>
+
+              <Typography variant="subtitle1" fontWeight="bold">
+                * Pasajeros extra:
+              </Typography>
               <Box
                 sx={{
                   display: "grid",
@@ -609,7 +747,7 @@ const Packages = () => {
                   },
                   gap: 2,
                   width: "40%",
-                  p: 2,
+                  p: 0,
                 }}
               >
                 <Typography variant="body2">

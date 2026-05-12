@@ -15,10 +15,16 @@ export default function Navbar() {
   const [anchorEl, setAnchorEl] = React.useState(null);
   const open = Boolean(anchorEl);
 
+  const isAdmin = keycloak?.realmAccess?.roles?.includes("ADMIN");
+
   const menuItems = [
     { text: "Home", path: "/" },
-    { text: "Pasajes", path: "/packages" },
+    { text: "Paquetes", path: "/packages" },
     { text: "Mis reservas", path: "/bookings" },
+  ];
+
+  const adminItems = [
+    ...(isAdmin ? [{ text: "Config. descuentos", path: "/setDiscounts" }] : []),
   ];
 
   // Open menu
@@ -84,7 +90,23 @@ export default function Navbar() {
         ))}
 
         {/* Separator */}
-        <MenuItem disabled>──────────</MenuItem>
+        <MenuItem disabled>────────────</MenuItem>
+
+        {/* Navigation options */}
+        {adminItems.map((item) => (
+          <MenuItem
+            key={item.text}
+            onClick={() => {
+              navigate(item.path);
+              handleClose();
+            }}
+          >
+            {item.text}
+          </MenuItem>
+        ))}
+
+        {/* Separator */}
+        <MenuItem disabled>────────────</MenuItem>
 
         {/* Print token */}
         <MenuItem
