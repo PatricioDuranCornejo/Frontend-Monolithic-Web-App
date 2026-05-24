@@ -18,6 +18,7 @@ import {
   Alert,
   Typography,
 } from "@mui/material";
+import NumberField from './NumberField';
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -45,13 +46,13 @@ const Home = () => {
   const [destinies, setDestinies] = useState([]);
   const [selectedDestiny, setSelectedDestiny] = useState(null);
 
-  // Consts for Dates select
+  // Consts for Dates filter
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
-  // Consts for Prices select
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
+  // Consts for Prices filter
+  const [minPrice, setMinPrice] = useState(null);
+  const [maxPrice, setMaxPrice] = useState(null);
 
   // Consts for Package Exp Types filter
   // Consts for Package Destiny filter
@@ -334,7 +335,7 @@ const Home = () => {
               display: "grid",
               gridTemplateColumns: {
                 xs: "1fr",
-                md: "190px 200px 200px 150px 210px",
+                md: "170px 190px 200px 180px 210px",
               },
               gap: 2,
               alignItems: "center",
@@ -410,21 +411,23 @@ const Home = () => {
               }}
             >
               <Stack spacing={1.3}>
-                <TextField
-                  value={minPrice}
-                  onChange={(e) => setMinPrice(e.target.value)}
-                  type="number"
+
+                <NumberField
                   label="Precio mínimo"
-                  inputProps={{ min: 0 }}
+                  value={minPrice}
+                  onValueChange={(value) => setMinPrice(value)}
+                  min={0}
+                  size="small"
                 />
 
-                <TextField
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                  type="number"
+                <NumberField
                   label="Precio máximo"
-                  inputProps={{ min: 0 }}
+                  onValueChange={(value) => setMaxPrice(value)}
+                  min={0}
+                  value={maxPrice}
+                  size="small"
                 />
+
               </Stack>
             </Box>
 

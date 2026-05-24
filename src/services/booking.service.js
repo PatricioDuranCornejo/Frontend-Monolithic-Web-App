@@ -20,4 +20,12 @@ const getDiscountsForUser = (numberOfPassengers, keycloakId) => {
     return httpClient.get(`/api/discounts/getDiscounts/${numberOfPassengers}/${keycloakId}`);
 };
 
-export default { create, getAll, getBookingsByKeycloakId, cancel, getDiscountsForUser };
+const deleteBooking = (bookingId) => {
+    return httpClient.delete(`/api/booking/${bookingId}`);
+}
+
+const getBookingsByDateRange = (afterDate, beforeDate) => {
+    return httpClient.get(`/api/booking/dateRange/${afterDate}/${beforeDate}`);
+}
+
+export default { create, getAll, getBookingsByKeycloakId, cancel, getDiscountsForUser, deleteBooking, getBookingsByDateRange };

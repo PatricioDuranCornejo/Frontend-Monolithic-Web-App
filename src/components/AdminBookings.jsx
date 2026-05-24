@@ -28,37 +28,29 @@ import {
 
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import PaidIcon from "@mui/icons-material/Paid";
+import PersonIcon from '@mui/icons-material/Person';
 import PeopleIcon from "@mui/icons-material/People";
-import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import DeleteIcon from '@mui/icons-material/Delete';
 import CancelSharpIcon from '@mui/icons-material/CancelSharp';
 import MenuSharpIcon from '@mui/icons-material/MenuSharp';
 import { WindowSharp } from "@mui/icons-material";
 import discountsService from "../services/discounts.service";
 
-const Bookings = () => {
+const AdminBookings = () => {
     const { keycloak } = useKeycloak();
     const [bookings, setBookings] = useState([]);
     const [packages, setPackages] = useState([]);
     const [openPackageDetailsModal, setOpenPackageDetailsModal] = useState(false);
     const [openPassengersDetailsModal, setOpenPassengersDetailsModal] = useState(false);
     const [openDiscountDetailsModal, setOpenDiscountDetailsModal] = useState(false);
-    const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
     const [openPaymentDetailsModal, setOpenPaymentDetailsModal] = useState(false);
+    const [openUserDetailsModal, setOpenUserDetailsModal] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [extraPassengers, setExtraPassengers] = useState([]);
     const [discountsDetails, setDiscountsDetails] = useState([]);
     const [payMethod, setPayMethod] = useState("");
     const [payment, setPayment] = useState(null);
     const [error, setError] = useState("");
-    const [paymentError, setPaymentError] = useState("");
-    const [form, setForm] = useState({
-        cardNumber: "",
-        expirationDate: "",
-        cvv: "",
-        cardHolder: "",
-    });
-
-
 
     const formatDate = (dateString) => {
         if (!dateString) return "-";
@@ -106,7 +98,7 @@ const Bookings = () => {
 
     const getBookings = async () => {
         try {
-            const response = await bookingService.getBookingsByKeycloakId(keycloak.tokenParsed.sub);
+            const response = await bookingService.getAll();
             setBookings(response.data);
         } catch (error) {
             console.error("Error fetching bookings:", error);
@@ -143,6 +135,12 @@ const Bookings = () => {
             });
     };
 
+    const handleUserDetailsModal = (booking) => {
+        setSelectedBooking(booking);
+        setOpenUserDetailsModal(true);
+        console.log(selectedBooking);
+    };
+
     const handleCancelBooking = async (booking) => {
         if (booking.bookingState.toLowerCase() === "paid") {
             window.alert("No puedes cancelar una reserva que ya ha sido pagada.");
@@ -162,109 +160,29 @@ const Bookings = () => {
         }
     };
 
-    const handlePayMethodChange = (event) => {
-        setPayMethod(event.target.value);
-    };
-
-    const handleCardNumberChange = (e) => {
-        const rawValue = e.target.value.replace(/\D/g, "").slice(0, 16);
-        const formattedValue = rawValue.replace(/(.{4})/g, "$1 ").trim();
-        setForm((prev) => ({ ...prev, cardNumber: formattedValue }));
-    };
-
-    const handleExpirationDateChange = (e) => {
-        const digits = e.target.value.replace(/\D/g, "").slice(0, 4); // MMYY
-
-        const month = digits.slice(0, 2);
-        const year = digits.slice(2, 4);
-
-        // Validar mes solo cuando ya tenga 2 dígitos
-        if (month.length === 2) {
-            const monthNumber = Number(month);
-            if (monthNumber < 1 || monthNumber > 12) return;
-        }
-
-        let formattedValue = month;
-
-        if (year.length > 0) {
-            formattedValue = `${month}/${year}`;
-        }
-
-        setForm((prev) => ({ ...prev, expirationDate: formattedValue }));
-    };
-
-    const handleCvvChange = (e) => {
-        const value = e.target.value.replace(/\D/g, "").slice(0, 3);
-        setForm((prev) => ({ ...prev, cvv: value }));
-    };
-
-    const handleCardHolderChange = (e) => {
-        const value = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "");
-        setForm((prev) => ({ ...prev, cardHolder: value }));
-    };
-
-    const handleSubmit = async () => {
-
-        if (!payMethod) {
-            window.alert("Por favor, selecciona un método de pago.");
+    const handleDeleteBooking = async (booking) => {
+        if (booking.bookingState.toLowerCase() === "paid") {
+            window.alert("No puedes eliminar una reserva que ya ha sido pagada.");
             return;
         }
-
-        if (!form.cardNumber || !form.expirationDate || !form.cvv || !form.cardHolder) {
-            setError("Por favor, completa todos los campos del formulario de pago.");
-            return;
-        }
-
-        if (!/^\d{4}\ \d{4}\ \d{4}\ \d{4}$/.test(form.cardNumber.trim())) {
-            setError("El número de tarjeta debe contener 16 dígitos.");
-            return;
-        }
-
-        if (!/^\d{2}\/\d{2}$/.test(form.expirationDate)) {
-            setError("La fecha de expiración debe tener el formato MM/AA.");
-            return;
-        }
-
-        if (!/^\d{3}$/.test(form.cvv)) {
-            setError("El CVV solo debe contener 3 dígitos.");
-            return;
-        }
-
-        const data = {
-            paymentDate: new Date().toISOString(),
-            paymentMethod: payMethod,
-            paymentAmount: selectedBooking.bookingTotalPrice,
-            booking: selectedBooking,
-        };
-
-        if (window.confirm("¿Confirma que desea realizar el pago de esta reserva?")) {
+        console.log(booking);
+        if (window.confirm("¿Estás seguro de que deseas ELIMINAR esta reserva?")) {
             try {
-                await paymentService.createPayment(data);
-                window.alert("Pago realizado con éxito.");
-                setOpenPaymentDialog(false);
+                console.log(booking.bookingId);
+                await bookingService.deleteBooking(booking.bookingId);
                 window.location.reload();
             } catch (error) {
-                console.error("Error processing payment:", error);
+                console.error("Error deleting booking:", error);
             }
         }
-    }
 
-    const handleBookingPaymentModal = (booking) => {
-        setOpenPaymentDialog(true);
-        setSelectedBooking(booking);
-    };
+    }
 
     const handlePaymentDetailsModal = async (booking) => {
         setOpenPaymentDetailsModal(true);
         const response = await paymentService.getByBookingId(booking.bookingId);
         setPayment(response.data);
         console.log(payment);
-    };
-
-    const translatePaymentMethod = (method) => {
-        const value = String(method || "").toLowerCase();
-        if (value === "creditcard") return "Tarjeta de crédito";
-        return "Desconocido";
     };
 
     const handleChange = (e) => {
@@ -365,7 +283,7 @@ const Bookings = () => {
                                             display: "grid",
                                             gridTemplateColumns: {
                                                 xs: "1fr",
-                                                md: "280px 360px 240px",
+                                                md: "280px 360px 280px",
                                             },
                                             gap: 2,
                                             alignItems: "center",
@@ -547,42 +465,130 @@ const Bookings = () => {
 
                                             {booking.bookingState.toLowerCase() === "awaiting for payment" ? (
                                                 <>
+                                                    <Box
+                                                        sx={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            gap: 1,
+                                                            flexWrap: "wrap",
+                                                        }}
+                                                    >
+                                                        <PeopleIcon fontSize="small" color="action" />
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                lineHeight: 1,
+                                                            }}
+                                                        >
+                                                            <strong>Usuario:</strong>&nbsp;{booking.user.userName}
+                                                        </Typography>
+
+                                                        <IconButton
+                                                            color="default"
+                                                            sx={{
+                                                                borderRadius: 1,
+                                                                boxShadow: 2,
+                                                                width: 30,
+                                                                height: 30,
+                                                                p: 0,
+                                                                flexShrink: 0,
+                                                            }}
+                                                            onClick={() => handleUserDetailsModal(booking)}
+                                                        >
+                                                            <MenuSharpIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Box>
                                                     <Chip
                                                         label={translateState(booking.bookingState)}
                                                         color={getStateColor(booking.bookingState)}
                                                         size="small"
                                                     />
-                                                    <Button
-                                                        variant="contained"
-                                                        size="small"
-                                                        startIcon={<ShoppingCartIcon />}
-                                                        color="success"
+                                                    <Box
                                                         sx={{
-                                                            borderRadius: 3,
-                                                            minWidth: 170,
-                                                            boxShadow: 2,
+                                                            display: "grid",
+                                                            gridTemplateColumns: {
+                                                                xs: "1fr",
+                                                                md: "120px 120px",
+                                                            },
+                                                            gap: 1,
+                                                            alignItems: "center",
+                                                            width: "100%",
+                                                            p: 0,
                                                         }}
-                                                        onClick={() => handleBookingPaymentModal(booking)}
                                                     >
-                                                        Pagar
-                                                    </Button>
-                                                    <Button
-                                                        variant="contained"
-                                                        size="small"
-                                                        startIcon={<CancelSharpIcon />}
-                                                        color="error"
-                                                        sx={{
-                                                            borderRadius: 3,
-                                                            minWidth: 170,
-                                                            boxShadow: 2,
-                                                        }}
-                                                        onClick={() => handleCancelBooking(booking)}
-                                                    >
-                                                        Cancelar
-                                                    </Button>
+                                                        <Button
+                                                            variant="outlined"
+                                                            size="small"
+                                                            startIcon={<CancelSharpIcon />}
+                                                            color="error"
+                                                            sx={{
+                                                                borderRadius: 3,
+                                                                boxShadow: 2,
+                                                            }}
+                                                            onClick={() => handleCancelBooking(booking)}
+                                                        >
+                                                            Cancelar
+                                                        </Button>
+
+                                                        {booking && (
+                                                            <Button
+                                                                variant="contained"
+                                                                size="small"
+                                                                startIcon={<DeleteIcon />}
+                                                                color="error"
+                                                                sx={{
+                                                                    borderRadius: 3,
+                                                                    boxShadow: 2,
+                                                                }}
+                                                                onClick={() => handleDeleteBooking(booking)}
+                                                            >
+                                                                ELIMINAR
+                                                            </Button>
+                                                        )}
+                                                    </Box>
                                                 </>
                                             ) : booking.bookingState.toLowerCase() === "paid" ? (
                                                 <>
+                                                    <Box
+                                                        sx={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            gap: 1,
+                                                            flexWrap: "wrap",
+                                                        }}
+                                                    >
+                                                        <PeopleIcon fontSize="small" color="action" />
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                lineHeight: 1,
+                                                            }}
+                                                        >
+                                                            <strong>Usuario:</strong>&nbsp;{booking.user.userName}
+                                                        </Typography>
+
+                                                        <IconButton
+                                                            color="default"
+                                                            sx={{
+                                                                borderRadius: 1,
+                                                                boxShadow: 2,
+                                                                width: 30,
+                                                                height: 30,
+                                                                p: 0,
+                                                                flexShrink: 0,
+                                                            }}
+                                                            onClick={() => handleUserDetailsModal(booking)}
+                                                        >
+                                                            <MenuSharpIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Box>
+
                                                     <Stack direction="row" spacing={0.5} alignItems="center">
                                                         <Chip
                                                             label={translateState(booking.bookingState)}
@@ -598,35 +604,74 @@ const Bookings = () => {
                                                                 p: 0,
                                                                 flexShrink: 0,
                                                             }}
-                                                            onClick={() => handlePaymentDetailsModal(booking)}
+                                                            onClick={() => handleUserDetailsModal(booking)}
                                                         >
                                                             <MenuSharpIcon fontSize="small" />
                                                         </IconButton>
                                                     </Stack>
-                                                    <Button
-                                                        variant="contained"
-                                                        size="small"
-                                                        startIcon={<CancelSharpIcon />}
-                                                        color="error"
-                                                        sx={{
-                                                            borderRadius: 3,
-                                                            minWidth: 170,
-                                                            boxShadow: 2,
-                                                        }}
-                                                        onClick={() => handleCancelBooking(booking)}
-                                                    >
-                                                        Cancelar
-                                                    </Button>
                                                 </>
                                             ) : (
-                                                <Chip
-                                                    label={translateState(booking.bookingState)}
-                                                    color={getStateColor(booking.bookingState)}
-                                                    size="medium"
-                                                    sx={{
-                                                        fontSize: "1.4rem",
-                                                    }}
-                                                />
+                                                <>
+                                                    <Box
+                                                        sx={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            gap: 1,
+                                                            flexWrap: "wrap",
+                                                        }}
+                                                    >
+                                                        <PeopleIcon fontSize="small" color="action" />
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                lineHeight: 1,
+                                                            }}
+                                                        >
+                                                            <strong>Usuario:</strong>&nbsp;{booking.user.userName}
+                                                        </Typography>
+
+                                                        <IconButton
+                                                            color="default"
+                                                            sx={{
+                                                                borderRadius: 1,
+                                                                boxShadow: 2,
+                                                                width: 30,
+                                                                height: 30,
+                                                                p: 0,
+                                                                flexShrink: 0,
+                                                            }}
+                                                            onClick={() => handleUserDetailsModal(booking)}
+                                                        >
+                                                            <MenuSharpIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Box>
+
+                                                    <Chip
+                                                        label={translateState(booking.bookingState)}
+                                                        color={getStateColor(booking.bookingState)}
+                                                        size="medium"
+                                                    />
+
+                                                    {booking && (
+                                                        <Button
+                                                            variant="contained"
+                                                            size="small"
+                                                            startIcon={<DeleteIcon />}
+                                                            color="error"
+                                                            sx={{
+                                                                borderRadius: 3,
+                                                                boxShadow: 2,
+                                                                minWidth: 170,
+                                                            }}
+                                                            onClick={() => handleDeleteBooking(booking)}
+                                                        >
+                                                            ELIMINAR
+                                                        </Button>
+                                                    )}
+                                                </>
 
                                             )}
                                         </Box>
@@ -811,129 +856,53 @@ const Bookings = () => {
                 </Box>
             </Modal>
 
-
-            {/* PAYMENT DIALOG */}
-            <Dialog open={openPaymentDialog} fullWidth maxWidth="sm" onClose={() => setOpenPaymentDialog(false)}>
-                <DialogTitle color="black">Realizar Pago</DialogTitle>
-                {selectedBooking && (
-                    <>
-                        <DialogContent>
-                            <Typography variant="h6" sx={{ mb: 2 }}>
-                                Resumen del pago:
+            {/* USER DETAILS MODAL */}
+            <Modal
+                open={openUserDetailsModal}
+                onClose={() => setOpenUserDetailsModal(false)}
+                aria-labelledby="modal-modal-title"
+                aria-describedby="modal-modal-description"
+            >
+                <Box
+                    sx={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        width: 400,
+                        bgcolor: "background.paper",
+                        border: "2px solid #000",
+                        boxShadow: 24,
+                        p: 4,
+                    }}
+                >
+                    {selectedBooking && (
+                        <>
+                            <Typography id="modal-modal-title" variant="h6" component="h2">
+                                <strong>Detalles del Usuario:</strong>
                             </Typography>
-                            <Typography variant="body2" sx={{ mb: 2 }}>
-                                <strong>- Monto unitario:</strong> {formatPrice(selectedBooking.pack.packagePrice)}
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                                <strong>Nombre:</strong> {selectedBooking.user.userName}
                             </Typography>
-                            <Typography variant="body2" sx={{ mb: 2 }}>
-                                <strong>- Cantidad de pasajeros:</strong> {selectedBooking.passengers}
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                                <strong>RUT:</strong> {selectedBooking.user.userRut}
                             </Typography>
-                            <Typography variant="body2" sx={{ mb: 2 }}>
-                                <strong>- Descuento aplicado:</strong> {(selectedBooking.bookingDiscount * 100) + "%" || "0%"}
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                                <strong>Correo:</strong> {selectedBooking.user.userEmail}
                             </Typography>
-                            <Typography variant="body2" sx={{ mb: 2 }}>
-                                <strong>- Monto total:</strong> {formatPrice(selectedBooking.bookingTotalPrice)}
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                                <strong>Teléfono:</strong> {selectedBooking.user.userPhone}
                             </Typography>
-
-                            <Typography variant="h6" sx={{ mb: 2 }}>
-                                Seleccione un método de pago:
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                                <strong>País:</strong> {selectedBooking.user.userCountry}
                             </Typography>
-                            <FormControl variant="standard" sx={{ m: 0, minWidth: 180 }}>
-                                <InputLabel id="demo-simple-select-standard-label">Método de pago</InputLabel>
-                                <Select
-                                    labelId="demo-simple-select-standard-label"
-                                    id="demo-simple-select-standard"
-                                    value={payMethod}
-                                    onChange={handlePayMethodChange}
-                                >
-                                    <MenuItem value="creditCard">Tarjeta de crédito</MenuItem>
-                                </Select>
-                            </FormControl>
-
-
-                            {payMethod && selectedBooking && (
-                                <form id="payment-form" onSubmit={handleSubmit}>
-                                    <Stack spacing={2} sx={{ mt: 1 }}>
-                                        {error && <Alert severity="error">{error}</Alert>}
-
-                                        <TextField
-                                            label="Número de tarjeta"
-                                            name="cardNumber"
-                                            value={form.cardNumber}
-                                            onChange={handleCardNumberChange}
-                                            fullWidth
-                                            required
-                                            inputProps={{ inputMode: "numeric" }}
-                                        />
-
-                                        <Stack
-                                            direction="row"
-                                            spacing={2}
-                                            sx={{
-                                                display: "grid",
-                                                gridTemplateColumns: {
-                                                    md: "300px 220px",
-                                                    xs: "1fr"
-                                                },
-                                                gap: 2,
-                                                mt: 2
-                                            }}>
-                                            <TextField
-                                                label="Fecha de expiración (MM/AA)"
-                                                name="expirationDate"
-                                                value={form.expirationDate}
-                                                onChange={handleExpirationDateChange}
-                                                fullWidth
-                                                required
-                                                type="text"
-                                                inputProps={{
-                                                    inputMode: "numeric",
-                                                    maxLength: 5,
-                                                }}
-                                            />
-                                            <TextField
-                                                label="CVV"
-                                                name="cvv"
-                                                value={form.cvv}
-                                                onChange={handleCvvChange}
-                                                fullWidth
-                                                required
-                                                inputProps={{
-                                                    inputMode: "numeric",
-                                                    maxLength: 3,
-                                                }}
-                                            />
-                                        </Stack>
-                                        <TextField
-                                            label="Titular de la tarjeta"
-                                            name="cardHolder"
-                                            value={form.cardHolder}
-                                            onChange={handleCardHolderChange}
-                                            fullWidth
-                                            required
-                                        />
-                                    </Stack>
-                                </form>
-                            )}
-                        </DialogContent>
-                    </>
-                )}
-
-                <DialogActions>
-                    <Button
-                        variant="contained"
-                        color="success"
-                        startIcon={<PaidIcon />}
-                        sx={{
-                            borderRadius: 3,
-                            minWidth: 170,
-                            boxShadow: 2,
-                        }}
-                        onClick={handleSubmit}
-                    >
-                        Pagar reserva
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+                                <strong>Usuario Frecuente:</strong> {selectedBooking.user.frecuentUser ? "Sí" : "No"}
+                            </Typography>
+                        </>
+                    )}
+                </Box>
+            </Modal>
 
             {/* PAYMENT DETAILS MODAL */}
             <Modal
@@ -977,5 +946,5 @@ const Bookings = () => {
     );
 };
 
-export default Bookings;
+export default AdminBookings;
 

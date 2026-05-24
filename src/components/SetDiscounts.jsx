@@ -38,6 +38,8 @@ const emptyForm = {
     timeLimitedDiscountActive: false,
     timeLimitedDiscountPercentage: "",
     timeLimitedDiscountCumulative: false,
+
+    bookingExpirationDays: "",
 };
 
 const SetDiscounts = () => {
@@ -111,6 +113,8 @@ const SetDiscounts = () => {
                     data.timeLimitedDiscountCumulative ??
                     data.isTimeLimitedDiscountCumulative ??
                     false,
+
+                bookingExpirationDays: data.bookingExpirationDays ?? "",
             });
         } catch (err) {
             setError(
@@ -191,6 +195,7 @@ const SetDiscounts = () => {
             "timeLimitedDiscountStart",
             "timeLimitedDiscountEnd",
             "timeLimitedDiscountPercentage",
+            "bookingExpirationDays"
         ];
 
         for (const field of requiredFields) {
@@ -245,6 +250,11 @@ const SetDiscounts = () => {
             return;
         }
 
+        if (!isValidPositiveInteger(form.bookingExpirationDays)) {
+            setError("La cantidad de días para la expiración de una reserva debe ser un entero positivo.");
+            return;
+        }
+
         const start = new Date(form.timeLimitedDiscountStart);
         const end = new Date(form.timeLimitedDiscountEnd);
 
@@ -284,6 +294,8 @@ const SetDiscounts = () => {
             timeLimitedDiscountActive: form.timeLimitedDiscountActive,
             timeLimitedDiscountPercentage: Number(form.timeLimitedDiscountPercentage),
             timeLimitedDiscountCumulative: form.timeLimitedDiscountCumulative,
+
+            bookingExpirationDays: form.bookingExpirationDays,
         };
 
         try {
@@ -579,6 +591,27 @@ const SetDiscounts = () => {
                                         step: "0.01",
                                         min: 0,
                                         max: 1,
+                                    }}
+                                    fullWidth
+                                    required
+                                />
+                            </Stack>
+                        </Box>
+
+                        <Box>
+                            <Typography variant="h6" fontWeight="bold">
+                                Expiración de una reserva pendiente de pago
+                            </Typography>
+                            <Stack spacing={2} sx={{ mt: 1 }}>
+                                <TextField
+                                    label="Cantidad máxima de días"
+                                    name="bookingExpirationDays"
+                                    value={form.bookingExpirationDays}
+                                    onChange={handlePositiveIntegerChange}
+                                    type="text"
+                                    inputProps={{
+                                        inputMode: "numeric",
+                                        pattern: "[0-9]*",
                                     }}
                                     fullWidth
                                     required

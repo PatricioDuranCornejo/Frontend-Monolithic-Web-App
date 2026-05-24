@@ -6,6 +6,10 @@ const createPayment = (data) => {
 
 const getByBookingId = (bookingId) => {
     return httpClient.get(`/api/payment/bookingId/${bookingId}`);
-} 
+}
 
-export default { createPayment, getByBookingId };
+const getByFilters = (filters) => {
+  return httpClient.get("/api/payment/filters", { params: filters });
+};
+
+export default { createPayment, getByBookingId, getByFilters };

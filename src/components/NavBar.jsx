@@ -25,6 +25,9 @@ export default function Navbar() {
 
   const adminItems = [
     ...(isAdmin ? [{ text: "Config. descuentos", path: "/setDiscounts" }] : []),
+    ...(isAdmin ? [{ text: "Admin. paquetes", path: "/adminPackages" }] : []),
+    ...(isAdmin ? [{ text: "Admin. reservas", path: "/adminBookings" }] : []),
+    ...(isAdmin ? [{ text: "Rankings", path: "/rankings" }] : []),
   ];
 
   // Open menu
@@ -90,7 +93,9 @@ export default function Navbar() {
         ))}
 
         {/* Separator */}
-        <MenuItem disabled>────────────</MenuItem>
+        {isAdmin && (
+          < MenuItem disabled>────────────</MenuItem>
+        )}
 
         {/* Navigation options */}
         {adminItems.map((item) => (
@@ -127,6 +132,6 @@ export default function Navbar() {
           Cerrar sesión
         </MenuItem>
       </Menu>
-    </Box>
+    </Box >
   );
 }

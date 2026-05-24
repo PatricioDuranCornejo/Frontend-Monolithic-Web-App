@@ -8,4 +8,12 @@ const updateDiscounts = (data) => {
     return httpClient.put('/api/discounts/', data);
 };
 
-export default { getDiscounts, updateDiscounts };
+const saveDiscountsDetails = (data) => {
+    return httpClient.post("/api/discountsDetails/", data);
+}
+
+const getDiscountsDetails = (bookingId) => {
+    return httpClient.get(`/api/discountsDetails/bookingId/${bookingId}`);
+};
+
+export default { getDiscounts, updateDiscounts, saveDiscountsDetails, getDiscountsDetails};

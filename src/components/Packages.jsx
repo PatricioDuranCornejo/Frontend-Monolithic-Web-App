@@ -37,6 +37,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ImageIcon from "@mui/icons-material/Image";
 import { useLocation } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
+import discountsService from "../services/discounts.service";
 
 const Packages = () => {
   const { keycloak } = useKeycloak();
@@ -275,18 +276,27 @@ const Packages = () => {
     console.log(data);
 
     try {
-      await bookingService.create(data);
-      console.log("Reserva creada exitosamente.");
-      const confirmBooking = window.alert("Reserva creada exitosamente.");
+      const bookingResponse = await bookingService.create(data);
+
+      for (let i = 0; i < discounts.length; i++) {
+        const discountDetailBody = {
+          discountName: discounts[i][0],
+          discountPercentage: parseFloat(discounts[i][1]),
+          discountCumulative: discounts[i][2],
+          isFinalDiscount: i === discounts.length - 1,
+          booking: bookingResponse.data,
+        };
+
+        console.log(discountDetailBody);
+        await discountsService.saveDiscountsDetails(discountDetailBody);
+      };
+      window.alert("Reserva creada exitosamente.");
+      setOpenBookingModal(false);
       window.location.reload();
-
     } catch (error) {
-      console.error("Error al crear la reserva:", error);
+      console.error("Error al crear la reserva o sus descuentos:", error);
     }
-
-    setOpenBookingModal(false);
-
-  }
+  };
 
   const translateDiscountName = (name) => {
     const map = {
@@ -324,7 +334,7 @@ const Packages = () => {
       return 0;
     }
 
-    const value = parseFloat(lastRow?.[0]);
+    const value = parseFloat(lastRow?.[1]);
     return Number.isFinite(value) ? value : 0;
   };
 
@@ -363,16 +373,16 @@ const Packages = () => {
         <Box sx={{ mt: 2 }}>
           <Typography variant="body2">
             <strong>Descuento final:</strong>{" "}
-            {(Number(finalDiscountRow?.[0] ?? 0) * 100).toFixed(0)}%
+            {(Number(finalDiscountRow?.[1] ?? 0) * 100).toFixed(2)}%
           </Typography>
 
           <Typography variant="body2">
-            <strong>Tipo:</strong> {translateDiscountType(finalDiscountRow?.[1])}
+            <strong>Tipo:</strong> {translateDiscountType(finalDiscountRow?.[2])}
           </Typography>
 
-          {finalDiscountRow?.[2] && (
+          {finalDiscountRow?.[0] && (
             <Typography variant="body2">
-              <strong>Origen:</strong> {translateDiscountName(finalDiscountRow[2])}
+              <strong>Origen:</strong> {translateDiscountName(finalDiscountRow[0])}
             </Typography>
           )}
         </Box>
@@ -727,8 +737,8 @@ const Packages = () => {
                 <strong>Cupos disponibles:</strong> {selectedPackage.packageStockAvailable}
               </Typography>
 
-              <Typography variant="subtitle1" fontWeight="bold">
-                * Descuentos:
+              <Typography variant="subtitle1">
+                <strong>* Descuentos: </strong>
               </Typography>
 
               <Box>
@@ -736,7 +746,7 @@ const Packages = () => {
               </Box>
 
               <Typography variant="subtitle1" fontWeight="bold">
-                * Pasajeros extra:
+                <strong>* Pasajeros extra: </strong>
               </Typography>
               <Box
                 sx={{
@@ -804,7 +814,11 @@ const Packages = () => {
               )}
 
               <Typography variant="body2">
-                <strong>Precio total:</strong> {formatPrice(totalPrice)}
+                <strong>Precio total:</strong> {formatPrice(passengers * selectedPackage.packagePrice)}
+              </Typography>
+
+              <Typography variant="body2">
+                <strong>Precio total con descuentos:</strong> {formatPrice(totalPrice)}
               </Typography>
             </Stack>
           )}

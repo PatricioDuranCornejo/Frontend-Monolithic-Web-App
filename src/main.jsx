@@ -7,7 +7,7 @@ import keycloak from "./services/keycloak";
 
 const eventLogger = (event, error) => {
   console.log('Keycloak Event:', event);
-  if (e |rror) {
+  if (error) {
     console.error('Keycloak Error:', error);
   }
 };

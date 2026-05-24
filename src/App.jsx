@@ -6,7 +6,10 @@ import NotFound from './components/NotFound';
 import Packages from './components/Packages';
 import Bookings from './components/Bookings';
 import SetDiscounts from './components/SetDiscounts';
+import AdminPackages from './components/AdminPackages';
+import AdminBookings from './components/AdminBookings';
 import { useKeycloak } from "@react-keycloak/web";
+import Rankings from './components/Rankings';
 
 function App() {
 
@@ -51,6 +54,12 @@ function App() {
           element={<PrivateRoute element={<Bookings />} rolesAllowed={["USER","ADMIN"]} />} />
           <Route path="/setDiscounts"
           element={<PrivateRoute element={<SetDiscounts />} rolesAllowed={["ADMIN"]} />} />
+          <Route path="/adminPackages"
+          element={<PrivateRoute element={<AdminPackages />} rolesAllowed={["ADMIN"]} />} />
+          <Route path="/adminBookings"
+          element={<PrivateRoute element={<AdminBookings />} rolesAllowed={["ADMIN"]} />} />
+          <Route path="/rankings"
+          element={<PrivateRoute element={<Rankings />} rolesAllowed={["ADMIN"]} />} />
         </Routes>
       </div>
 
