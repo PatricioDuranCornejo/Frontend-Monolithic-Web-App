@@ -9,6 +9,7 @@ import SetDiscounts from './components/SetDiscounts';
 import AdminPackages from './components/AdminPackages';
 import AdminBookings from './components/AdminBookings';
 import { useKeycloak } from "@react-keycloak/web";
+import SalesList from './components/SalesList';
 import Rankings from './components/Rankings';
 
 function App() {
@@ -58,6 +59,8 @@ function App() {
           element={<PrivateRoute element={<AdminPackages />} rolesAllowed={["ADMIN"]} />} />
           <Route path="/adminBookings"
           element={<PrivateRoute element={<AdminBookings />} rolesAllowed={["ADMIN"]} />} />
+          <Route path="/salesList"
+          element={<PrivateRoute element={<SalesList />} rolesAllowed={["ADMIN"]} />} />
           <Route path="/rankings"
           element={<PrivateRoute element={<Rankings />} rolesAllowed={["ADMIN"]} />} />
         </Routes>

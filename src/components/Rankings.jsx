@@ -20,16 +20,25 @@ import {
     MenuItem,
     FormControl,
     FormControlLabel,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
     Switch,
     TextField,
     Alert,
 } from "@mui/material";
-import MenuSharpIcon from '@mui/icons-material/MenuSharp';
+import LocationOnIcon from "@mui/icons-material/LocationOn";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import PaidIcon from "@mui/icons-material/Paid";
-import PersonIcon from '@mui/icons-material/Person';
 import PeopleIcon from "@mui/icons-material/People";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import CloseIcon from "@mui/icons-material/Close";
+import ImageIcon from "@mui/icons-material/Image";
+import MenuSharpIcon from '@mui/icons-material/MenuSharp';
+import PersonIcon from '@mui/icons-material/Person';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import SearchIcon from '@mui/icons-material/Search';
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -42,11 +51,14 @@ const Rankings = () => {
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [openPackageDetailsModal, setOpenPackageDetailsModal] = useState(false);
     const [openUserDetailsModal, setOpenUserDetailsModal] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [expanded, setExpanded] = useState(false);
 
-    // Consts for filter
     const [startDate, setStartDate] = useState(null);
     const [endDate, setEndDate] = useState(null);
-    const [includeCanceled, setIncludeCanceled] = useState(false);
+    const [searchFilter, setSearchFilter] = useState("");
+    const [filterSelected, setFilterSelected] = useState(false);
+    const [error, setError] = useState("");
 
     const handleUserDetailsModal = (booking) => {
         console.log(booking);
@@ -89,48 +101,84 @@ const Rankings = () => {
 
     const translateState = (state) => {
         const value = String(state || "").toLowerCase();
-        if (value === "paid") return "Pagada";
-        if (value === "cancelled") return "Cancelada";
-        if (value === "expired") return "Expirada";
-        if (value === "awaiting for payment") return "Pendiente de pago";
+        if (value === "available") return "Disponible";
+        if (value === "sold out") return "Vendido";
+        if (value === "cancelled") return "Cancelado";
+        if (value === "out of date") return "Caducado";
         return "Desconocido";
     };
 
     const getStateColor = (state) => {
         const value = String(state || "").toLowerCase();
-        if (value === "paid") return "success";
-        if (value === "canceled" || value == "cancelled") return "error";
-        if (value === "awaiting for payment") return "primary";
+        if (value === "available") return "success";
+        if (value === "sold out" || value == "cancelled") return "error";
+        if (value === "out of date") return "default";
         return "primary";
     };
 
     const handleSalesListSearch = async () => {
-
         if (startDate === null || startDate === "" || endDate === null || endDate === "") {
             window.alert("Se deben seleccionar dos fechas válidas para la busqueda.");
             return;
         }
 
         try {
-            if (includeCanceled) {
-                const response = await bookingService.getBookingsByDateRange(startDate.format("YYYY-MM-DDTHH:mm:ss"), endDate.format("YYYY-MM-DDTHH:mm:ss"));
+            console.log(searchFilter);
+            if (searchFilter === "Amount of bookings") {
+                const response = await paymentService.rankBySoldAmount(startDate.format("YYYY-MM-DDTHH:mm:ss"), endDate.format("YYYY-MM-DDTHH:mm:ss"));
                 setRankings(response.data);
-            } else {
-                const filters = {
-                    minDate: startDate.format("YYYY-MM-DDTHH:mm:ss"),
-                    maxDate: endDate.format("YYYY-MM-DDTHH:mm:ss"),
-                };
-                const response = await paymentService.getByFilters(filters);
+                console.log(response.data);
+
+            } else if (searchFilter === "Number of passengers") {
+                const response = await paymentService.rankByPassengersAmount(startDate.format("YYYY-MM-DDTHH:mm:ss"), endDate.format("YYYY-MM-DDTHH:mm:ss"));
                 setRankings(response.data);
+                console.log(response.data);
+
+            } else if (searchFilter === "Total sales amount") {
+                const response = await paymentService.rankByTotalSale(startDate.format("YYYY-MM-DDTHH:mm:ss"), endDate.format("YYYY-MM-DDTHH:mm:ss"));
+                setRankings(response.data);
+                console.log(response.data);
             }
         } catch (error) {
             console.error("Error:", error);
         }
+        setFilterSelected(false);
+    };
+
+    const handleSearchFilterChange = (event) => {
+        setSearchFilter(event.target.value);
+        setFilterSelected(true);
+    }
+
+    // Generate placeholder image URL (using picsum.photos for demo)
+    const getPlaceholderImage = (packageId) => {
+        // Using a consistent seed based on packageId for the same image per package
+        return `https://picsum.photos/seed/${packageId}/800/600`;
+    };
+
+    // Handle image modal open
+    const handleImageOpen = (imageUrl) => {
+        setSelectedImage(imageUrl);
+    };
+
+    // Handle image modal close
+    const handleImageClose = () => {
+        setSelectedImage(null);
+    };
+
+    // Handle accordion change
+    const handleAccordionChange = (panel) => (event, isExpanded) => {
+        setExpanded(isExpanded ? panel : false);
     };
 
     return (
         <Container>
-            <Stack spacing={1.3}>
+            <Stack spacing={2}>
+
+                <Typography variant="h5" sx={{ mt: 4, textAlign: "center" }}>
+                    Ranking de paquetes vendidos por período
+                </Typography>
+
                 <Card
                     elevation={4}
                     sx={{
@@ -139,6 +187,7 @@ const Rankings = () => {
                         mx: "auto",
                         borderRadius: 4,
                         overflow: "hidden",
+                        alignSelf: "center",
                     }}
                 >
 
@@ -148,7 +197,7 @@ const Rankings = () => {
                             display: "grid",
                             gridTemplateColumns: {
                                 xs: "1fr",
-                                md: "200px 200px 240px 200px",
+                                md: "200px 200px 230px 200px",
                             },
                             gap: 2,
                             alignItems: "center",
@@ -197,30 +246,29 @@ const Rankings = () => {
                             </LocalizationProvider>
                         </Box>
 
-                        <Box
-                            sx={{
-                                display: "flex",
-                                justifyContent: "right",
-                                alignItems: "center",
-                            }}
-                        >
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={includeCanceled}
-                                        onChange={(e) => setIncludeCanceled(e.target.checked)}
-                                    />
-                                }
-                                label="¿Incluir canceladas?"
-                            />
-                        </Box>
+                        {/* Select Filter */}
+                        <FormControl fullWidth>
+                            <InputLabel id="demo-simple-select-label">Filtro de búsqueda</InputLabel>
+                            <Select
+                                labelId="demo-simple-select-label"
+                                id="demo-simple-select"
+                                label="Filtro de búsqueda"
+                                value={searchFilter}
+                                onChange={(e) => handleSearchFilterChange(e)}
+                            >
+                                <MenuItem value={"Amount of bookings"}>Cantidad de reservas</MenuItem>
+                                <MenuItem value={"Number of passengers"}>Número de pasajeros</MenuItem>
+                                <MenuItem value={"Total sales amount"}>Monto total vendido</MenuItem>
+                            </Select>
+                        </FormControl>
 
                         <Button
                             variant="contained"
                             size="small"
+                            startIcon={<SearchIcon />}
                             sx={{
                                 borderRadius: 3,
-                                minWidth: 170,
+                                minWidth: 180,
                                 boxShadow: 2,
                             }}
                             onClick={handleSalesListSearch}
@@ -230,18 +278,21 @@ const Rankings = () => {
 
                     </Box>
                 </Card>
+            </Stack>
 
+            <Stack spacing={2} sx={{ mt: 3 }}>
                 {rankings.length === 0 ? (
                     <Typography variant="h6" sx={{ mt: 4, textAlign: "center" }}>
-                        No hay resultados.
+                        No hay rankings disponibles.
                     </Typography>
                 ) : (
                     <Stack spacing={2} sx={{ width: "100%" }}>
-                        {rankings.map((ranking, index) => {
+                        {rankings.map((pkg, index) => {
+                            const placeholderImage = getPlaceholderImage(pkg[0].packageId);
                             return (
-                                !includeCanceled ? (
+                                searchFilter === "Amount of bookings" && !filterSelected ? (
                                     <Box
-                                        key={index}
+                                        key={pkg[0].packageId}
                                         sx={{
                                             width: "100%",
                                             display: "flex",
@@ -263,7 +314,7 @@ const Rankings = () => {
                                                     display: "grid",
                                                     gridTemplateColumns: {
                                                         xs: "1fr",
-                                                        md: "80px 320px 360px 160px",
+                                                        md: "130px 180px 180px 280px 130px",
                                                     },
                                                     gap: 2,
                                                     alignItems: "center",
@@ -271,6 +322,7 @@ const Rankings = () => {
                                                     p: 2,
                                                 }}
                                             >
+                                                {/* LEFT SECTION: RANK POSITION */}
                                                 <Box
                                                     sx={{
                                                         display: "flex",
@@ -278,15 +330,53 @@ const Rankings = () => {
                                                         justifyContent: "center",
                                                         alignItems: "center",
                                                         textAlign: "center",
-                                                        minHeight: 110,
-                                                        borderRight: { xs: "none", md: "1px solid rgba(0,0,0,0.12)" },
-                                                        px: { xs: 0, md: 0 },
                                                     }}
                                                 >
                                                     <Typography variant="h2">
                                                         {index + 1}{"."}
                                                     </Typography>
                                                 </Box>
+
+                                                {/* PACKAGE IMAGE */}
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        justifyContent: "center",
+                                                        alignItems: "center",
+                                                        borderLeft: { xs: "none", md: "1px solid rgba(0,0,0,0.12)" },
+                                                    }}
+                                                >
+                                                    <Box
+                                                        onClick={() => handleImageOpen(placeholderImage)}
+                                                        sx={{
+                                                            width: "100%",
+                                                            maxWidth: 140,
+                                                            height: 100,
+                                                            borderRadius: 2,
+                                                            overflow: "hidden",
+                                                            cursor: "pointer",
+                                                            position: "relative",
+                                                            "&:hover": {
+                                                                boxShadow: "0 8px 16px rgba(0,0,0,0.3)",
+                                                                transform: "scale(1.02)",
+                                                            },
+                                                            transition: "all 0.3s ease-in-out",
+                                                        }}
+                                                    >
+                                                        <Box
+                                                            component="img"
+                                                            src={placeholderImage}
+                                                            alt={pkg[0].packageName}
+                                                            sx={{
+                                                                width: "100%",
+                                                                height: "100%",
+                                                                objectFit: "cover",
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                </Box>
+
+                                                {/* PACKAGE NAME, DESTINY, TYPE & STATE */}
                                                 <Box
                                                     sx={{
                                                         display: "flex",
@@ -295,71 +385,33 @@ const Rankings = () => {
                                                         alignItems: "center",
                                                         textAlign: "center",
                                                         minHeight: 110,
-                                                        gap: 1,
+                                                        gap: 0.5,
                                                     }}
                                                 >
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <PersonIcon fontSize="small" color="action" />
-                                                            <Typography variant="body1">
-                                                                <strong>Usuario: </strong>{ranking.booking.user.userName}
-                                                            </Typography>
-                                                            <IconButton
-                                                                color="default"
-                                                                sx={{
-                                                                    borderRadius: 1,
-                                                                    boxShadow: 2,
-                                                                    width: 30,
-                                                                    height: 30,
-                                                                    p: 0,
-                                                                    flexShrink: 0,
-                                                                }}
-                                                                onClick={() => handleUserDetailsModal(ranking.booking)}
-                                                            >
-                                                                <MenuSharpIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Box>
+                                                    <Typography variant="h5" fontWeight="bold">
+                                                        {pkg[0].packageName}
+                                                    </Typography>
+
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <LocationOnIcon fontSize="small" color="action" />
+                                                        <Typography variant="body2">
+                                                            <strong>Destino:</strong> {pkg[0].packageDestiny}
+                                                        </Typography>
                                                     </Stack>
 
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <InventoryIcon fontSize="small" color="action" />
-                                                            <Typography variant="body1">
-                                                                <strong>Paquete: </strong> {ranking.booking.pack.packageName}
-                                                            </Typography>
-                                                            <IconButton
-                                                                color="default"
-                                                                sx={{
-                                                                    borderRadius: 3,
-                                                                    boxShadow: 2,
-                                                                    width: 35,
-                                                                    height: 35,
-                                                                }}
-                                                                onClick={() => handlePackageDetailsModal(ranking.booking)}
-                                                            >
-                                                                <MenuSharpIcon />
-                                                            </IconButton>
-                                                        </Box>
-                                                    </Stack>
+                                                    <Typography variant="body2">
+                                                        <strong>Tipo:</strong> {pkg[0].packageExperienceType}
+                                                    </Typography>
+
+                                                    <Chip
+                                                        label={translateState(pkg[0].packageState)}
+                                                        color={getStateColor(pkg[0].packageState)}
+                                                        size="small"
+                                                    />
+
                                                 </Box>
 
-                                                {/* NUMBER OF PASSENGERS, PRICE, PAYMENT DATE */}
+                                                {/* DATES, CAPACITY & PRICE */}
                                                 <Box
                                                     sx={{
                                                         display: "flex",
@@ -374,73 +426,40 @@ const Rankings = () => {
                                                     }}
                                                 >
                                                     <Stack spacing={1.3}>
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <PeopleIcon fontSize="small" color="action" />
-                                                            <Typography
-                                                                variant="body1"
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    lineHeight: 1,
-                                                                }}
-                                                            >
-                                                                <strong>Número de pasajeros:</strong>&nbsp;{ranking.booking.passengers}
-                                                            </Typography>
-                                                        </Box>
-
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <PaidIcon fontSize="small" color="action" />
-                                                            <Typography
-                                                                variant="body1"
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    lineHeight: 1,
-                                                                }}
-                                                            >
-                                                                <strong>Monto: </strong>&nbsp;{formatPrice(ranking.booking.bookingTotalPrice)}
-                                                            </Typography>
-                                                        </Box>
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
+                                                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
                                                             <CalendarMonthIcon fontSize="small" color="action" />
-                                                            <Typography
-                                                                variant="body1"
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    lineHeight: 1,
-                                                                }}
-                                                            >
-                                                                <strong>Fecha de pago: </strong>&nbsp;{formatDate(ranking.paymentDate)}
+                                                            <Typography variant="body2">
+                                                                <strong>Inicio:</strong> {formatDate(pkg[0].startDate)}
                                                             </Typography>
-                                                        </Box>
+                                                        </Stack>
+
+                                                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                                            <CalendarMonthIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                <strong>Fin:</strong> {formatDate(pkg[0].endDate)}
+                                                            </Typography>
+                                                        </Stack>
+
+                                                        <Stack spacing={1.3}>
+                                                            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                                                <PeopleIcon fontSize="small" color="action" />
+                                                                <Typography variant="body2">
+                                                                    <strong>Cupos:</strong> {pkg[0].packageStockAvailable} <strong>(Total: {pkg[0].packageCapacity})</strong>
+                                                                </Typography>
+                                                            </Stack>
+                                                        </Stack>
+
+                                                        <Stack direction="row" spacing={1} alignItems="center">
+                                                            <PaidIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                <strong>Precio:</strong> {formatPrice(pkg[0].packagePrice)}
+                                                            </Typography>
+                                                        </Stack>
+
                                                     </Stack>
                                                 </Box>
 
+                                                {/* RANKING CRITERIA */}
                                                 <Box
                                                     sx={{
                                                         display: "flex",
@@ -449,61 +468,65 @@ const Rankings = () => {
                                                         alignItems: "center",
                                                         textAlign: "center",
                                                         minHeight: 110,
-                                                        px: { xs: 0, md: 2 },
+                                                        gap: 1,
                                                     }}
                                                 >
-                                                    <Stack spacing={1.3}>
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <Typography
-                                                                variant="h6"
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    lineHeight: 1,
-                                                                }}
-                                                            >
-                                                                <strong>Estado:</strong>
-                                                            </Typography>
-                                                        </Box>
 
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <Typography
-                                                                variant="h4"
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    lineHeight: 1,
-                                                                }}
-                                                                color="success"
-                                                            >
-                                                                <strong></strong>{translateState(ranking.booking.bookingState)}
+                                                    <Stack spacing={1.3}>
+
+                                                        <Stack spacing={0.5}>
+                                                            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                                                <Typography variant="body2">
+                                                                    <strong>Reservas realizadas:</strong>
+                                                                </Typography>
+                                                            </Stack>
+
+                                                            <Typography variant="h5">
+                                                                {pkg[1]}
                                                             </Typography>
-                                                        </Box>
+
+                                                        </Stack>
                                                     </Stack>
                                                 </Box>
-
                                             </Box>
+
+                                            {/* ACCORDION SECTION: PACKAGE DESCRIPTION */}
+                                            <Accordion
+                                                expanded={expanded === `panel-${pkg[0].packageId}`}
+                                                onChange={handleAccordionChange(`panel-${pkg[0].packageId}`)}
+                                                elevation={0}
+                                                sx={{
+                                                    "&:before": {
+                                                        display: "none",
+                                                    },
+                                                    borderTop: "1px solid rgba(0,0,0,0.12)",
+                                                }}
+                                            >
+                                                <AccordionSummary
+                                                    expandIcon={<ExpandMoreIcon />}
+                                                    sx={{
+                                                        backgroundColor: "rgba(0,0,0,0.02)",
+                                                        "&:hover": {
+                                                            backgroundColor: "rgba(0,0,0,0.04)",
+                                                        },
+                                                    }}
+                                                >
+                                                    <Typography variant="subtitle1" fontWeight="medium">
+                                                        Descripción del paquete
+                                                    </Typography>
+                                                </AccordionSummary>
+                                                <AccordionDetails>
+                                                    <Typography variant="body1" sx={{ lineHeight: 1.7 }}>
+                                                        {pkg[0].packageDescription ||
+                                                            "No hay descripción disponible para este paquete."}
+                                                    </Typography>
+                                                </AccordionDetails>
+                                            </Accordion>
                                         </Card>
                                     </Box>
-                                ) : (
+                                ) : searchFilter === "Number of passengers" && !filterSelected ? (
                                     <Box
-                                        key={index}
+                                        key={pkg[0].packageId}
                                         sx={{
                                             width: "100%",
                                             display: "flex",
@@ -525,7 +548,7 @@ const Rankings = () => {
                                                     display: "grid",
                                                     gridTemplateColumns: {
                                                         xs: "1fr",
-                                                        md: "80px 320px 360px 160px",
+                                                        md: "130px 180px 180px 280px 130px",
                                                     },
                                                     gap: 2,
                                                     alignItems: "center",
@@ -533,6 +556,7 @@ const Rankings = () => {
                                                     p: 2,
                                                 }}
                                             >
+                                                {/* LEFT SECTION: RANK POSITION */}
                                                 <Box
                                                     sx={{
                                                         display: "flex",
@@ -540,15 +564,53 @@ const Rankings = () => {
                                                         justifyContent: "center",
                                                         alignItems: "center",
                                                         textAlign: "center",
-                                                        minHeight: 110,
-                                                        borderRight: { xs: "none", md: "1px solid rgba(0,0,0,0.12)" },
-                                                        px: { xs: 0, md: 0 },
                                                     }}
                                                 >
                                                     <Typography variant="h2">
                                                         {index + 1}{"."}
                                                     </Typography>
                                                 </Box>
+
+                                                {/* PACKAGE IMAGE */}
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        justifyContent: "center",
+                                                        alignItems: "center",
+                                                        borderLeft: { xs: "none", md: "1px solid rgba(0,0,0,0.12)" },
+                                                    }}
+                                                >
+                                                    <Box
+                                                        onClick={() => handleImageOpen(placeholderImage)}
+                                                        sx={{
+                                                            width: "100%",
+                                                            maxWidth: 140,
+                                                            height: 100,
+                                                            borderRadius: 2,
+                                                            overflow: "hidden",
+                                                            cursor: "pointer",
+                                                            position: "relative",
+                                                            "&:hover": {
+                                                                boxShadow: "0 8px 16px rgba(0,0,0,0.3)",
+                                                                transform: "scale(1.02)",
+                                                            },
+                                                            transition: "all 0.3s ease-in-out",
+                                                        }}
+                                                    >
+                                                        <Box
+                                                            component="img"
+                                                            src={placeholderImage}
+                                                            alt={pkg[0].packageName}
+                                                            sx={{
+                                                                width: "100%",
+                                                                height: "100%",
+                                                                objectFit: "cover",
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                </Box>
+
+                                                {/* PACKAGE NAME, DESTINY, TYPE & STATE */}
                                                 <Box
                                                     sx={{
                                                         display: "flex",
@@ -557,71 +619,33 @@ const Rankings = () => {
                                                         alignItems: "center",
                                                         textAlign: "center",
                                                         minHeight: 110,
-                                                        gap: 1,
+                                                        gap: 0.5,
                                                     }}
                                                 >
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <PersonIcon fontSize="small" color="action" />
-                                                            <Typography variant="body1">
-                                                                <strong>Usuario: </strong>{ranking.user.userName}
-                                                            </Typography>
-                                                            <IconButton
-                                                                color="default"
-                                                                sx={{
-                                                                    borderRadius: 1,
-                                                                    boxShadow: 2,
-                                                                    width: 30,
-                                                                    height: 30,
-                                                                    p: 0,
-                                                                    flexShrink: 0,
-                                                                }}
-                                                                onClick={() => handleUserDetailsModal(ranking)}
-                                                            >
-                                                                <MenuSharpIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Box>
+                                                    <Typography variant="h5" fontWeight="bold">
+                                                        {pkg[0].packageName}
+                                                    </Typography>
+
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <LocationOnIcon fontSize="small" color="action" />
+                                                        <Typography variant="body2">
+                                                            <strong>Destino:</strong> {pkg[0].packageDestiny}
+                                                        </Typography>
                                                     </Stack>
 
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <InventoryIcon fontSize="small" color="action" />
-                                                            <Typography variant="body1">
-                                                                <strong>Paquete: </strong> {ranking.pack.packageName}
-                                                            </Typography>
-                                                            <IconButton
-                                                                color="default"
-                                                                sx={{
-                                                                    borderRadius: 3,
-                                                                    boxShadow: 2,
-                                                                    width: 35,
-                                                                    height: 35,
-                                                                }}
-                                                                onClick={() => handlePackageDetailsModal(ranking)}
-                                                            >
-                                                                <MenuSharpIcon />
-                                                            </IconButton>
-                                                        </Box>
-                                                    </Stack>
+                                                    <Typography variant="body2">
+                                                        <strong>Tipo:</strong> {pkg[0].packageExperienceType}
+                                                    </Typography>
+
+                                                    <Chip
+                                                        label={translateState(pkg[0].packageState)}
+                                                        color={getStateColor(pkg[0].packageState)}
+                                                        size="small"
+                                                    />
+
                                                 </Box>
 
-                                                {/* NUMBER OF PASSENGERS, PRICE, PAYMENT DATE */}
+                                                {/* DATES, CAPACITY & PRICE */}
                                                 <Box
                                                     sx={{
                                                         display: "flex",
@@ -636,73 +660,40 @@ const Rankings = () => {
                                                     }}
                                                 >
                                                     <Stack spacing={1.3}>
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <PeopleIcon fontSize="small" color="action" />
-                                                            <Typography
-                                                                variant="body1"
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    lineHeight: 1,
-                                                                }}
-                                                            >
-                                                                <strong>Número de pasajeros:</strong>&nbsp;{ranking.passengers}
-                                                            </Typography>
-                                                        </Box>
-
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <PaidIcon fontSize="small" color="action" />
-                                                            <Typography
-                                                                variant="body1"
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    lineHeight: 1,
-                                                                }}
-                                                            >
-                                                                <strong>Monto: </strong>&nbsp;{formatPrice(ranking.bookingTotalPrice)}
-                                                            </Typography>
-                                                        </Box>
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
+                                                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
                                                             <CalendarMonthIcon fontSize="small" color="action" />
-                                                            <Typography
-                                                                variant="body1"
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    lineHeight: 1,
-                                                                }}
-                                                            >
-                                                                <strong>Fecha de pago: </strong>&nbsp;{formatDate(ranking.bookingDate)}
+                                                            <Typography variant="body2">
+                                                                <strong>Inicio:</strong> {formatDate(pkg[0].startDate)}
                                                             </Typography>
-                                                        </Box>
+                                                        </Stack>
+
+                                                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                                            <CalendarMonthIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                <strong>Fin:</strong> {formatDate(pkg[0].endDate)}
+                                                            </Typography>
+                                                        </Stack>
+
+                                                        <Stack spacing={1.3}>
+                                                            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                                                <PeopleIcon fontSize="small" color="action" />
+                                                                <Typography variant="body2">
+                                                                    <strong>Cupos:</strong> {pkg[0].packageStockAvailable} <strong>(Total: {pkg[0].packageCapacity})</strong>
+                                                                </Typography>
+                                                            </Stack>
+                                                        </Stack>
+
+                                                        <Stack direction="row" spacing={1} alignItems="center">
+                                                            <PaidIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                <strong>Precio:</strong> {formatPrice(pkg[0].packagePrice)}
+                                                            </Typography>
+                                                        </Stack>
+
                                                     </Stack>
                                                 </Box>
 
+                                                {/* RANKING CRITERIA */}
                                                 <Box
                                                     sx={{
                                                         display: "flex",
@@ -711,168 +702,303 @@ const Rankings = () => {
                                                         alignItems: "center",
                                                         textAlign: "center",
                                                         minHeight: 110,
+                                                        gap: 1,
+                                                    }}
+                                                >
+
+                                                    <Stack spacing={1.3}>
+
+                                                        <Stack spacing={0.5}>
+                                                            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                                                <Typography variant="body2">
+                                                                    <strong>Número total de pasajeros:</strong>
+                                                                </Typography>
+                                                            </Stack>
+
+                                                            <Typography variant="h5">
+                                                                {pkg[1]}
+                                                            </Typography>
+
+                                                        </Stack>
+                                                    </Stack>
+                                                </Box>
+                                            </Box>
+
+                                            {/* ACCORDION SECTION: PACKAGE DESCRIPTION */}
+                                            <Accordion
+                                                expanded={expanded === `panel-${pkg[0].packageId}`}
+                                                onChange={handleAccordionChange(`panel-${pkg[0].packageId}`)}
+                                                elevation={0}
+                                                sx={{
+                                                    "&:before": {
+                                                        display: "none",
+                                                    },
+                                                    borderTop: "1px solid rgba(0,0,0,0.12)",
+                                                }}
+                                            >
+                                                <AccordionSummary
+                                                    expandIcon={<ExpandMoreIcon />}
+                                                    sx={{
+                                                        backgroundColor: "rgba(0,0,0,0.02)",
+                                                        "&:hover": {
+                                                            backgroundColor: "rgba(0,0,0,0.04)",
+                                                        },
+                                                    }}
+                                                >
+                                                    <Typography variant="subtitle1" fontWeight="medium">
+                                                        Descripción del paquete
+                                                    </Typography>
+                                                </AccordionSummary>
+                                                <AccordionDetails>
+                                                    <Typography variant="body1" sx={{ lineHeight: 1.7 }}>
+                                                        {pkg[0].packageDescription ||
+                                                            "No hay descripción disponible para este paquete."}
+                                                    </Typography>
+                                                </AccordionDetails>
+                                            </Accordion>
+                                        </Card>
+                                    </Box>
+                                ) : searchFilter === "Total sales amount" && !filterSelected ? (
+                                    <Box
+                                        key={pkg[0].packageId}
+                                        sx={{
+                                            width: "100%",
+                                            display: "flex",
+                                            justifyContent: "center",
+                                        }}
+                                    >
+                                        <Card
+                                            elevation={4}
+                                            sx={{
+                                                width: "100%",
+                                                maxWidth: "1400px",
+                                                borderRadius: 4,
+                                                overflow: "hidden",
+                                            }}
+                                        >
+                                            {/* Main content grid */}
+                                            <Box
+                                                sx={{
+                                                    display: "grid",
+                                                    gridTemplateColumns: {
+                                                        xs: "1fr",
+                                                        md: "130px 180px 180px 250px 170px",
+                                                    },
+                                                    gap: 2,
+                                                    alignItems: "center",
+                                                    width: "100%",
+                                                    p: 2,
+                                                }}
+                                            >
+                                                {/* LEFT SECTION: RANK POSITION */}
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        justifyContent: "center",
+                                                        alignItems: "center",
+                                                        textAlign: "center",
+                                                    }}
+                                                >
+                                                    <Typography variant="h2">
+                                                        {index + 1}{"."}
+                                                    </Typography>
+                                                </Box>
+
+                                                {/* PACKAGE IMAGE */}
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        justifyContent: "center",
+                                                        alignItems: "center",
+                                                        borderLeft: { xs: "none", md: "1px solid rgba(0,0,0,0.12)" },
+                                                    }}
+                                                >
+                                                    <Box
+                                                        onClick={() => handleImageOpen(placeholderImage)}
+                                                        sx={{
+                                                            width: "100%",
+                                                            maxWidth: 140,
+                                                            height: 100,
+                                                            borderRadius: 2,
+                                                            overflow: "hidden",
+                                                            cursor: "pointer",
+                                                            position: "relative",
+                                                            "&:hover": {
+                                                                boxShadow: "0 8px 16px rgba(0,0,0,0.3)",
+                                                                transform: "scale(1.02)",
+                                                            },
+                                                            transition: "all 0.3s ease-in-out",
+                                                        }}
+                                                    >
+                                                        <Box
+                                                            component="img"
+                                                            src={placeholderImage}
+                                                            alt={pkg[0].packageName}
+                                                            sx={{
+                                                                width: "100%",
+                                                                height: "100%",
+                                                                objectFit: "cover",
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                </Box>
+
+                                                {/* PACKAGE NAME, DESTINY, TYPE & STATE */}
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        justifyContent: "center",
+                                                        alignItems: "center",
+                                                        textAlign: "center",
+                                                        minHeight: 110,
+                                                        gap: 0.5,
+                                                    }}
+                                                >
+                                                    <Typography variant="h5" fontWeight="bold">
+                                                        {pkg[0].packageName}
+                                                    </Typography>
+
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <LocationOnIcon fontSize="small" color="action" />
+                                                        <Typography variant="body2">
+                                                            <strong>Destino:</strong> {pkg[0].packageDestiny}
+                                                        </Typography>
+                                                    </Stack>
+
+                                                    <Typography variant="body2">
+                                                        <strong>Tipo:</strong> {pkg[0].packageExperienceType}
+                                                    </Typography>
+
+                                                    <Chip
+                                                        label={translateState(pkg[0].packageState)}
+                                                        color={getStateColor(pkg[0].packageState)}
+                                                        size="small"
+                                                    />
+
+                                                </Box>
+
+                                                {/* DATES, CAPACITY & PRICE */}
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        justifyContent: "center",
+                                                        alignItems: "center",
+                                                        textAlign: "center",
+                                                        minHeight: 110,
+                                                        borderLeft: { xs: "none", md: "1px solid rgba(0,0,0,0.12)" },
+                                                        borderRight: { xs: "none", md: "1px solid rgba(0,0,0,0.12)" },
                                                         px: { xs: 0, md: 2 },
                                                     }}
                                                 >
                                                     <Stack spacing={1.3}>
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <Typography
-                                                                variant="h6"
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    lineHeight: 1,
-                                                                }}
-                                                            >
-                                                                <strong>Estado:</strong>
+                                                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                                            <CalendarMonthIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                <strong>Inicio:</strong> {formatDate(pkg[0].startDate)}
                                                             </Typography>
-                                                        </Box>
+                                                        </Stack>
 
-                                                        <Box
-                                                            sx={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: 1,
-                                                                flexWrap: "wrap",
-                                                            }}
-                                                        >
-                                                            <Typography
-                                                                variant="h4"
-                                                                sx={{
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    lineHeight: 1,
-                                                                }}
-                                                                color={getStateColor(ranking.bookingState)}
-                                                            >
-                                                                <strong></strong>{translateState(ranking.bookingState)}
+                                                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                                            <CalendarMonthIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                <strong>Fin:</strong> {formatDate(pkg[0].endDate)}
                                                             </Typography>
-                                                        </Box>
+                                                        </Stack>
+
+                                                        <Stack spacing={1.3}>
+                                                            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                                                <PeopleIcon fontSize="small" color="action" />
+                                                                <Typography variant="body2">
+                                                                    <strong>Cupos:</strong> {pkg[0].packageStockAvailable} <strong>(Total: {pkg[0].packageCapacity})</strong>
+                                                                </Typography>
+                                                            </Stack>
+                                                        </Stack>
+
+                                                        <Stack direction="row" spacing={1} alignItems="center">
+                                                            <PaidIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                <strong>Precio:</strong> {formatPrice(pkg[0].packagePrice)}
+                                                            </Typography>
+                                                        </Stack>
+
                                                     </Stack>
                                                 </Box>
 
+                                                {/* RANKING CRITERIA */}
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        justifyContent: "center",
+                                                        alignItems: "center",
+                                                        textAlign: "center",
+                                                        minHeight: 110,
+                                                        gap: 1,
+                                                    }}
+                                                >
+
+                                                    <Stack spacing={1.3}>
+                                                        <Stack spacing={0.5}>
+                                                            <Typography variant="body2">
+                                                                <strong>Monto total vendido:</strong>
+                                                            </Typography>
+
+                                                            <Typography variant="h5">
+                                                                {formatPrice(pkg[1])}
+                                                            </Typography>
+
+                                                        </Stack>
+                                                    </Stack>
+                                                </Box>
                                             </Box>
+
+                                            {/* ACCORDION SECTION: PACKAGE DESCRIPTION */}
+                                            <Accordion
+                                                expanded={expanded === `panel-${pkg[0].packageId}`}
+                                                onChange={handleAccordionChange(`panel-${pkg[0].packageId}`)}
+                                                elevation={0}
+                                                sx={{
+                                                    "&:before": {
+                                                        display: "none",
+                                                    },
+                                                    borderTop: "1px solid rgba(0,0,0,0.12)",
+                                                }}
+                                            >
+                                                <AccordionSummary
+                                                    expandIcon={<ExpandMoreIcon />}
+                                                    sx={{
+                                                        backgroundColor: "rgba(0,0,0,0.02)",
+                                                        "&:hover": {
+                                                            backgroundColor: "rgba(0,0,0,0.04)",
+                                                        },
+                                                    }}
+                                                >
+                                                    <Typography variant="subtitle1" fontWeight="medium">
+                                                        Descripción del paquete
+                                                    </Typography>
+                                                </AccordionSummary>
+                                                <AccordionDetails>
+                                                    <Typography variant="body1" sx={{ lineHeight: 1.7 }}>
+                                                        {pkg[0].packageDescription ||
+                                                            "No hay descripción disponible para este paquete."}
+                                                    </Typography>
+                                                </AccordionDetails>
+                                            </Accordion>
                                         </Card>
                                     </Box>
-                                ));
+                                ) : null
+                            );
                         })}
                     </Stack>
                 )}
+
             </Stack>
 
-            {/* USER DETAILS MODAL */}
-            <Modal
-                open={openUserDetailsModal}
-                onClose={() => setOpenUserDetailsModal(false)}
-                aria-labelledby="modal-modal-title"
-                aria-describedby="modal-modal-description"
-            >
-                <Box
-                    sx={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        width: 400,
-                        bgcolor: "background.paper",
-                        border: "2px solid #000",
-                        boxShadow: 24,
-                        p: 4,
-                    }}
-                >
-                    {selectedBooking && (
-                        <>
-                            <Typography id="modal-modal-title" variant="h6" component="h2">
-                                <strong>Detalles del Usuario:</strong>
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Nombre:</strong> {selectedBooking.user.userName}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>RUT:</strong> {selectedBooking.user.userRut}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Correo:</strong> {selectedBooking.user.userEmail}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Teléfono:</strong> {selectedBooking.user.userPhone}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>País:</strong> {selectedBooking.user.userCountry}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Usuario Frecuente:</strong> {selectedBooking.user.frecuentUser ? "Sí" : "No"}
-                            </Typography>
-                        </>
-                    )}
-                </Box>
-            </Modal>
 
-            {/* PACKAGE DETAILS MODAL */}
-            <Modal
-                open={openPackageDetailsModal}
-                onClose={() => setOpenPackageDetailsModal(false)}
-                aria-labelledby="modal-modal-title"
-                aria-describedby="modal-modal-description"
-            >
-                <Box
-                    sx={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        width: 400,
-                        bgcolor: "background.paper",
-                        border: "2px solid #000",
-                        boxShadow: 24,
-                        p: 4,
-                    }}
-                >
-                    {selectedBooking && (
-                        <>
-                            <Typography id="modal-modal-title" variant="h6" component="h2">
-                                <strong>Detalles del paquete:</strong> {selectedBooking.pack.packageName}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Destino:</strong> {selectedBooking.pack.packageDestiny}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Descripción:</strong> {selectedBooking.pack.packageDescription}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Tipo de experiencia:</strong> {selectedBooking.pack.packageExperienceType}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Fecha de inicio:</strong> {formatDate(selectedBooking.pack.startDate)}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Fecha de término:</strong> {formatDate(selectedBooking.pack.endDate)}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Precio unitario:</strong> {formatPrice(selectedBooking.pack.packagePrice)}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Capacidad total:</strong> {selectedBooking.pack.packageCapacity}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Stock disponible:</strong> {selectedBooking.pack.packageStockAvailable}
-                            </Typography>
-                            <Typography id="modal-modal-description" sx={{ mt: 2 }}>
-                                <strong>Estado:</strong> {translateState(selectedBooking.pack.packageState)}
-                            </Typography>
-                        </>
-                    )}
-                </Box>
-            </Modal>
+
         </Container>
     );
 };

@@ -27,6 +27,7 @@ export default function Navbar() {
     ...(isAdmin ? [{ text: "Config. descuentos", path: "/setDiscounts" }] : []),
     ...(isAdmin ? [{ text: "Admin. paquetes", path: "/adminPackages" }] : []),
     ...(isAdmin ? [{ text: "Admin. reservas", path: "/adminBookings" }] : []),
+    ...(isAdmin ? [{ text: "Listado de ventas", path: "/salesList" }] : []),
     ...(isAdmin ? [{ text: "Rankings", path: "/rankings" }] : []),
   ];
 

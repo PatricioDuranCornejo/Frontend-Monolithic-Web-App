@@ -246,17 +246,17 @@ const AdminPackages = () => {
         }
 
         if (!isValidStr(form.packageDestiny)) {
-            setError("El número de reservas debe ser un entero positivo.");
+            setError("El destino del paquete debe ser válido.");
             return;
         }
 
         if (!isValidStr(form.packageDescription)) {
-            setError("Las horas entre reservas deben ser un entero positivo.");
+            setError("La descripción del paquete debe ser válida.");
             return;
         }
 
         if (!isValidStr(form.packageExperienceType)) {
-            setError("La cantidad de reservas debe ser un entero positivo.");
+            setError("El tipo de experiencia del paquete debe ser válido.");
             return;
         }
 
@@ -274,17 +274,17 @@ const AdminPackages = () => {
         }
 
         if (!isValidPositiveInteger(form.packagePrice)) {
-            setError("La cantidad de reservas debe ser un entero positivo.");
+            setError("El precio del paquete debe ser un entero positivo.");
             return;
         }
 
         if (!isValidPositiveInteger(form.packageCapacity)) {
-            setError("La cantidad de reservas debe ser un entero positivo.");
+            setError("La capacidad del paquete debe ser un entero positivo.");
             return;
         }
 
         if (!isValidPositiveInteger(form.packageStockAvailable)) {
-            setError("La cantidad de reservas debe ser un entero positivo.");
+            setError("La cantidad de stock disponible debe ser un entero positivo.");
             return;
         }
 
@@ -312,19 +312,21 @@ const AdminPackages = () => {
             if (isEdit) {
                 await packageService.update(payload);
                 setSuccess("Paquete actualizado correctamente.");
+                window.location.reload();
             } else {
                 payload.packageStockAvailable = payload.packageCapacity;
                 await packageService.save(payload);
                 setSuccess("Paquete creado correctamente.");
+                window.location.reload();
             }
         } catch (err) {
             setError(
                 err?.response?.data?.message ||
                 "Ocurrió un error al subir el paquete. Intenta nuevamente."
             );
+            window.alert(err?.response?.data?.message || "Ocurrió un error al subir el paquete. Intenta nuevamente.")
         } finally {
             setSaving(false);
-            window.location.reload();
         }
     }
 
